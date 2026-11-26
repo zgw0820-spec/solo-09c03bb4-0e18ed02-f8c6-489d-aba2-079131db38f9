@@ -1,0 +1,18 @@
+{
+  "status": "succeeded",
+  "round_id": "rnd_0004_36190f",
+  "volume": "index",
+  "copied_from": "/workspace/data/final/index",
+  "snapshot_path": "/workspace/data/final/snapshots/rnd_0004_36190f/index",
+  "files": 1,
+  "bytes": 362,
+  "copy_seconds": 0.008481622906401753,
+  "copied_at_unix": 1795721327.0994265,
+  "file_manifest": [
+    {
+      "path": "art_00001_e152c7.json",
+      "size_bytes": 362,
+      "sha256": "78d81037610919af814e543bcf6e453d59d223da1e100aa3e7512799bfa5e959"
+    }
+  ]
+}

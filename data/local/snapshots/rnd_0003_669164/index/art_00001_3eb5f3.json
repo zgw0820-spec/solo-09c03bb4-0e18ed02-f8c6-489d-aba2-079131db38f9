@@ -1,0 +1,12 @@
+{
+  "id": "art_00001_3eb5f3",
+  "seq": 1,
+  "name": "试跑A-在途制品",
+  "blob_file": "art_00001_3eb5f3.bin",
+  "size_bytes": 1579,
+  "sha256": "de05f532c3d87481953daec1d498abbfe0659e5b70c3bae6334bb46d149f0e30",
+  "interval_seconds": 2.0,
+  "accepted_at_unix": 1795721088.521576,
+  "blob_at_unix": 1795721088.6231058,
+  "index_at_unix": 1795721090.6233523
+}

@@ -1,0 +1,199 @@
+INFO:     Started server process [241]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:49896 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60470 - "GET /api/state HTTP/1.1" 200 OK
+2026-11-26 19:23:27,770 INFO httpx HTTP Request: GET http://127.0.0.1:8001/admin/config "HTTP/1.1 200 OK"
+2026-11-26 19:23:27,771 INFO httpx HTTP Request: GET http://127.0.0.1:8002/admin/config "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:60478 - "GET /api/agents HTTP/1.1" 200 OK
+2026-11-26 19:24:48,513 INFO httpx HTTP Request: PUT http://127.0.0.1:8001/admin/config "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:34392 - "PUT /api/agents/index/config HTTP/1.1" 200 OK
+2026-11-26 19:24:48,518 INFO httpx HTTP Request: PUT http://127.0.0.1:8002/admin/config "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:34408 - "PUT /api/agents/blobs/config HTTP/1.1" 200 OK
+2026-11-26 19:24:48,521 INFO artifact-lab.manager 已接单 art_00001_3eb5f3（试跑A-在途制品），两次落盘间隔 2.00s
+INFO:     127.0.0.1:34420 - "POST /api/artifacts HTTP/1.1" 201 Created
+2026-11-26 19:24:48,823 WARNING artifact-lab.manager 轮次 rnd_0001_f9b39b 开始：已暂停接单（1 个已接单在途）
+INFO:     127.0.0.1:59732 - "POST /api/backup/start HTTP/1.1" 201 Created
+2026-11-26 19:24:48,823 INFO artifact-lab.manager 轮次 rnd_0001_f9b39b：等待 1 个已接单制品写齐两卷后再抓取
+INFO:     127.0.0.1:59738 - "POST /api/backup/start HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:59752 - "POST /api/artifacts HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:59764 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59778 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59792 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59796 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59800 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59810 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59812 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59822 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59826 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59828 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59838 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59852 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59854 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59868 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59884 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59888 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59900 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59910 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+2026-11-26 19:24:50,639 INFO artifact-lab.manager 制品 art_00001_3eb5f3 已写齐两卷
+2026-11-26 19:24:50,639 WARNING artifact-lab.manager 轮次 rnd_0001_f9b39b：两卷已无在途写入，停写抓取窗口开启，最长 3.0s
+INFO:     127.0.0.1:59924 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59940 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59956 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+2026-11-26 19:24:50,860 INFO httpx HTTP Request: POST http://127.0.0.1:8002/snapshot "HTTP/1.1 200 OK"
+2026-11-26 19:24:50,862 INFO artifact-lab.manager 轮次 rnd_0001_f9b39b：blobs 卷按时回报抓取成功（1 个文件 / 1579 字节）
+2026-11-26 19:24:50,865 INFO httpx HTTP Request: POST http://127.0.0.1:8001/snapshot "HTTP/1.1 200 OK"
+2026-11-26 19:24:50,866 INFO artifact-lab.manager 轮次 rnd_0001_f9b39b：index 卷按时回报抓取成功（1 个文件 / 362 字节）
+2026-11-26 19:24:50,866 INFO artifact-lab.manager 轮次 rnd_0001_f9b39b：两卷均在 3.0s 停写窗口内回报成功，整组快照可下载；立即恢复接单
+2026-11-26 19:24:50,869 INFO artifact-lab.manager 轮次 rnd_0001_f9b39b：整组下载包已打好（rnd_0001_f9b39b.zip，2362 字节）
+INFO:     127.0.0.1:59966 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59970 - "GET /api/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59976 - "GET /api/rounds/rnd_0001_f9b39b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59986 - "GET /api/rounds/rnd_0001_f9b39b/download HTTP/1.1" 200 OK
+2026-11-26 19:25:18,050 INFO httpx HTTP Request: PUT http://127.0.0.1:8001/admin/config "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:53652 - "PUT /api/agents/index/config HTTP/1.1" 200 OK
+2026-11-26 19:25:18,056 INFO httpx HTTP Request: PUT http://127.0.0.1:8002/admin/config "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:53654 - "PUT /api/agents/blobs/config HTTP/1.1" 200 OK
+2026-11-26 19:25:18,058 INFO artifact-lab.manager 已接单 art_00002_680bd8（试跑A-在途制品），两次落盘间隔 2.00s
+INFO:     127.0.0.1:53666 - "POST /api/artifacts HTTP/1.1" 201 Created
+2026-11-26 19:25:18,359 WARNING artifact-lab.manager 轮次 rnd_0002_77a015 开始：已暂停接单（1 个已接单在途）
+INFO:     127.0.0.1:53678 - "POST /api/backup/start HTTP/1.1" 201 Created
+2026-11-26 19:25:18,359 INFO artifact-lab.manager 轮次 rnd_0002_77a015：等待 1 个已接单制品写齐两卷后再抓取
+INFO:     127.0.0.1:53692 - "POST /api/backup/start HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:53696 - "POST /api/artifacts HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:53708 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53716 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53732 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53736 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45774 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45782 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45798 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45812 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45828 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45836 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45840 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45852 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45856 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45868 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45880 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45896 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45902 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+2026-11-26 19:25:20,072 INFO artifact-lab.manager 制品 art_00002_680bd8 已写齐两卷
+2026-11-26 19:25:20,072 WARNING artifact-lab.manager 轮次 rnd_0002_77a015：两卷已无在途写入，停写抓取窗口开启，最长 3.0s
+INFO:     127.0.0.1:45910 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45926 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+2026-11-26 19:25:20,282 INFO httpx HTTP Request: POST http://127.0.0.1:8001/snapshot "HTTP/1.1 200 OK"
+2026-11-26 19:25:20,283 INFO httpx HTTP Request: POST http://127.0.0.1:8002/snapshot "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:45930 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+2026-11-26 19:25:20,285 INFO artifact-lab.manager 轮次 rnd_0002_77a015：blobs 卷按时回报抓取成功（2 个文件 / 3158 字节）
+2026-11-26 19:25:20,285 INFO artifact-lab.manager 轮次 rnd_0002_77a015：index 卷按时回报抓取成功（2 个文件 / 724 字节）
+2026-11-26 19:25:20,285 INFO artifact-lab.manager 轮次 rnd_0002_77a015：两卷均在 3.0s 停写窗口内回报成功，整组快照可下载；立即恢复接单
+2026-11-26 19:25:20,287 INFO artifact-lab.manager 轮次 rnd_0002_77a015：整组下载包已打好（rnd_0002_77a015.zip，3146 字节）
+INFO:     127.0.0.1:45936 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45946 - "GET /api/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45950 - "GET /api/rounds/rnd_0002_77a015 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45964 - "GET /api/rounds/rnd_0002_77a015/download HTTP/1.1" 200 OK
+2026-11-26 19:25:20,394 INFO httpx HTTP Request: PUT http://127.0.0.1:8001/admin/config "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:45968 - "PUT /api/agents/index/config HTTP/1.1" 200 OK
+2026-11-26 19:25:20,397 INFO httpx HTTP Request: PUT http://127.0.0.1:8002/admin/config "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:45974 - "PUT /api/agents/blobs/config HTTP/1.1" 200 OK
+2026-11-26 19:25:20,399 WARNING artifact-lab.manager 轮次 rnd_0003_669164 开始：已暂停接单（0 个已接单在途）
+INFO:     127.0.0.1:45982 - "POST /api/backup/start HTTP/1.1" 201 Created
+2026-11-26 19:25:20,399 INFO artifact-lab.manager 轮次 rnd_0003_669164：等待 0 个已接单制品写齐两卷后再抓取
+2026-11-26 19:25:20,399 WARNING artifact-lab.manager 轮次 rnd_0003_669164：两卷已无在途写入，停写抓取窗口开启，最长 3.0s
+INFO:     127.0.0.1:45994 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46004 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46018 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+2026-11-26 19:25:20,605 INFO httpx HTTP Request: POST http://127.0.0.1:8002/snapshot "HTTP/1.1 200 OK"
+2026-11-26 19:25:20,606 INFO artifact-lab.manager 轮次 rnd_0003_669164：blobs 卷按时回报抓取成功（2 个文件 / 3158 字节）
+INFO:     127.0.0.1:46026 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46038 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46048 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46054 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46056 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46072 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46080 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46086 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46094 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46100 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46112 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46126 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46134 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46138 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46146 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46156 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46158 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46162 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46172 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46176 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46180 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46194 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46206 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46220 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46230 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46246 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46256 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+2026-11-26 19:25:23,400 ERROR artifact-lab.manager 轮次 rnd_0003_669164：备份失败（capture_timeout）：停写窗口 3.0s 到期，未按时收齐两卷成功回报（已成功：['blobs']；缺失/未决：['index']）；本轮不提供下载，立即恢复接单
+INFO:     127.0.0.1:46270 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46284 - "GET /api/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46296 - "GET /api/rounds/rnd_0003_669164/download HTTP/1.1" 409 Conflict
+2026-11-26 19:25:23,470 INFO httpx HTTP Request: PUT http://127.0.0.1:8001/admin/config "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:46310 - "PUT /api/agents/index/config HTTP/1.1" 200 OK
+2026-11-26 19:25:23,473 WARNING artifact-lab.manager 轮次 rnd_0004_26f528 开始：已暂停接单（0 个已接单在途）
+INFO:     127.0.0.1:46314 - "POST /api/backup/start HTTP/1.1" 201 Created
+2026-11-26 19:25:23,473 INFO artifact-lab.manager 轮次 rnd_0004_26f528：等待 0 个已接单制品写齐两卷后再抓取
+2026-11-26 19:25:23,473 WARNING artifact-lab.manager 轮次 rnd_0004_26f528：两卷已无在途写入，停写抓取窗口开启，最长 3.0s
+INFO:     127.0.0.1:46328 - "GET /api/rounds/rnd_0004_26f528 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46344 - "GET /api/rounds/rnd_0004_26f528 HTTP/1.1" 200 OK
+2026-11-26 19:25:23,639 INFO httpx HTTP Request: POST http://127.0.0.1:8001/snapshot "HTTP/1.1 200 OK"
+2026-11-26 19:25:23,640 INFO artifact-lab.manager 轮次 rnd_0004_26f528：index 卷按时回报抓取成功（2 个文件 / 724 字节）
+INFO:     127.0.0.1:46356 - "GET /api/rounds/rnd_0004_26f528 HTTP/1.1" 200 OK
+2026-11-26 19:25:23,695 INFO httpx HTTP Request: POST http://127.0.0.1:8002/snapshot "HTTP/1.1 200 OK"
+2026-11-26 19:25:23,696 INFO artifact-lab.manager 轮次 rnd_0004_26f528：blobs 卷按时回报抓取成功（2 个文件 / 3158 字节）
+2026-11-26 19:25:23,696 INFO artifact-lab.manager 轮次 rnd_0004_26f528：两卷均在 3.0s 停写窗口内回报成功，整组快照可下载；立即恢复接单
+2026-11-26 19:25:23,699 INFO artifact-lab.manager 轮次 rnd_0004_26f528：整组下载包已打好（rnd_0004_26f528.zip，2936 字节）
+INFO:     127.0.0.1:46372 - "GET /api/rounds/rnd_0004_26f528 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46388 - "GET /api/rounds/rnd_0004_26f528 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46400 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46410 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46426 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46428 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46430 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46450 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+2026-11-26 19:25:24,907 INFO httpx HTTP Request: POST http://127.0.0.1:8001/snapshot "HTTP/1.1 200 OK"
+2026-11-26 19:25:24,908 WARNING artifact-lab.manager 轮次 rnd_0003_669164：收到 index 卷的迟到成功回报，仅归档，不改变本轮「failed」结果，也不影响下一轮
+INFO:     127.0.0.1:46460 - "GET /api/rounds/rnd_0003_669164 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46472 - "GET /api/rounds/rnd_0004_26f528 HTTP/1.1" 200 OK
+2026-11-26 19:25:25,003 INFO httpx HTTP Request: PUT http://127.0.0.1:8001/admin/config "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:46474 - "PUT /api/agents/index/config HTTP/1.1" 200 OK
+2026-11-26 19:25:25,007 INFO httpx HTTP Request: PUT http://127.0.0.1:8002/admin/config "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:46478 - "PUT /api/agents/blobs/config HTTP/1.1" 200 OK
+2026-11-26 19:25:25,011 INFO httpx HTTP Request: PUT http://127.0.0.1:8002/admin/config "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:46492 - "PUT /api/agents/blobs/config HTTP/1.1" 200 OK
+2026-11-26 19:25:25,013 WARNING artifact-lab.manager 轮次 rnd_0005_5a5b70 开始：已暂停接单（0 个已接单在途）
+INFO:     127.0.0.1:46508 - "POST /api/backup/start HTTP/1.1" 201 Created
+2026-11-26 19:25:25,013 INFO artifact-lab.manager 轮次 rnd_0005_5a5b70：等待 0 个已接单制品写齐两卷后再抓取
+2026-11-26 19:25:25,013 WARNING artifact-lab.manager 轮次 rnd_0005_5a5b70：两卷已无在途写入，停写抓取窗口开启，最长 3.0s
+INFO:     127.0.0.1:46520 - "GET /api/rounds/rnd_0005_5a5b70 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46524 - "GET /api/rounds/rnd_0005_5a5b70 HTTP/1.1" 200 OK
+2026-11-26 19:25:25,117 INFO httpx HTTP Request: POST http://127.0.0.1:8002/snapshot "HTTP/1.1 503 Service Unavailable"
+2026-11-26 19:25:25,118 ERROR artifact-lab.manager 轮次 rnd_0005_5a5b70：blobs 卷回报失败：injected one-shot snapshot failure
+2026-11-26 19:25:25,118 ERROR artifact-lab.manager 轮次 rnd_0005_5a5b70：备份失败（agent_failure）：blobs 卷抓取失败：injected one-shot snapshot failure；本轮不提供下载，立即恢复接单
+INFO:     127.0.0.1:46526 - "GET /api/rounds/rnd_0005_5a5b70 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46540 - "GET /api/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46542 - "GET /api/rounds/rnd_0005_5a5b70/download HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:46552 - "GET /api/rounds/rnd_0005_5a5b70 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46568 - "GET /api/rounds/rnd_0005_5a5b70 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46580 - "GET /api/rounds/rnd_0005_5a5b70 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46584 - "GET /api/rounds/rnd_0005_5a5b70 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46590 - "GET /api/rounds/rnd_0005_5a5b70 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46604 - "GET /api/rounds/rnd_0005_5a5b70 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46618 - "GET /api/rounds/rnd_0005_5a5b70 HTTP/1.1" 200 OK
+2026-11-26 19:25:26,225 INFO httpx HTTP Request: POST http://127.0.0.1:8001/snapshot "HTTP/1.1 200 OK"
+2026-11-26 19:25:26,226 WARNING artifact-lab.manager 轮次 rnd_0005_5a5b70：收到 index 卷的迟到成功回报，仅归档，不改变本轮「failed」结果，也不影响下一轮
+INFO:     127.0.0.1:46626 - "GET /api/rounds/rnd_0005_5a5b70 HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [241]

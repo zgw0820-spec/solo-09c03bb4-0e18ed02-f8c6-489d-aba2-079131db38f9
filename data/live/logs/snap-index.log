@@ -1,0 +1,29 @@
+INFO:     Started server process [538]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:54474 - "GET /health HTTP/1.1" 200 OK
+2026-11-26 19:37:19,082 INFO snapshot-agent [index] config updated: {'volume': 'index', 'source_dir': '/workspace/data/live/index', 'snapshot_root': '/workspace/data/live/snapshots', 'delay_seconds': 0.2, 'fail_mode': 'none', 'fail_once_armed': False}
+INFO:     127.0.0.1:54490 - "PUT /admin/config HTTP/1.1" 200 OK
+2026-11-26 19:37:21,105 INFO snapshot-agent [index] snapshot request round=rnd_0001_98489d delay=0.200
+2026-11-26 19:37:21,329 INFO snapshot-agent [index] snapshot ok round=rnd_0001_98489d files=1 bytes=362
+INFO:     127.0.0.1:54490 - "POST /snapshot HTTP/1.1" 200 OK
+2026-11-26 19:37:21,448 INFO snapshot-agent [index] config updated: {'volume': 'index', 'source_dir': '/workspace/data/live/index', 'snapshot_root': '/workspace/data/live/snapshots', 'delay_seconds': 4.5, 'fail_mode': 'none', 'fail_once_armed': False}
+INFO:     127.0.0.1:54490 - "PUT /admin/config HTTP/1.1" 200 OK
+2026-11-26 19:37:21,464 INFO snapshot-agent [index] snapshot request round=rnd_0002_a80785 delay=4.500
+2026-11-26 19:37:24,510 INFO snapshot-agent [index] config updated: {'volume': 'index', 'source_dir': '/workspace/data/live/index', 'snapshot_root': '/workspace/data/live/snapshots', 'delay_seconds': 0.15, 'fail_mode': 'none', 'fail_once_armed': False}
+INFO:     127.0.0.1:54494 - "PUT /admin/config HTTP/1.1" 200 OK
+2026-11-26 19:37:24,518 INFO snapshot-agent [index] snapshot request round=rnd_0003_1557e6 delay=0.150
+2026-11-26 19:37:24,678 INFO snapshot-agent [index] snapshot ok round=rnd_0003_1557e6 files=1 bytes=362
+INFO:     127.0.0.1:54494 - "POST /snapshot HTTP/1.1" 200 OK
+2026-11-26 19:37:25,967 INFO snapshot-agent [index] snapshot ok round=rnd_0002_a80785 files=1 bytes=362
+INFO:     127.0.0.1:54490 - "POST /snapshot HTTP/1.1" 200 OK
+2026-11-26 19:37:26,035 INFO snapshot-agent [index] config updated: {'volume': 'index', 'source_dir': '/workspace/data/live/index', 'snapshot_root': '/workspace/data/live/snapshots', 'delay_seconds': 1.2, 'fail_mode': 'none', 'fail_once_armed': False}
+INFO:     127.0.0.1:54490 - "PUT /admin/config HTTP/1.1" 200 OK
+2026-11-26 19:37:26,050 INFO snapshot-agent [index] snapshot request round=rnd_0004_a674ec delay=1.200
+2026-11-26 19:37:27,258 INFO snapshot-agent [index] snapshot ok round=rnd_0004_a674ec files=1 bytes=362
+INFO:     127.0.0.1:54490 - "POST /snapshot HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [538]

@@ -1,0 +1,29 @@
+INFO:     Started server process [539]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8002 (Press CTRL+C to quit)
+INFO:     127.0.0.1:38642 - "GET /health HTTP/1.1" 200 OK
+2026-11-26 19:37:19,090 INFO snapshot-agent [blobs] config updated: {'volume': 'blobs', 'source_dir': '/workspace/data/live/blobs', 'snapshot_root': '/workspace/data/live/snapshots', 'delay_seconds': 0.2, 'fail_mode': 'none', 'fail_once_armed': False}
+INFO:     127.0.0.1:38648 - "PUT /admin/config HTTP/1.1" 200 OK
+2026-11-26 19:37:21,106 INFO snapshot-agent [blobs] snapshot request round=rnd_0001_98489d delay=0.200
+2026-11-26 19:37:21,331 INFO snapshot-agent [blobs] snapshot ok round=rnd_0001_98489d files=1 bytes=1579
+INFO:     127.0.0.1:38648 - "POST /snapshot HTTP/1.1" 200 OK
+2026-11-26 19:37:21,453 INFO snapshot-agent [blobs] config updated: {'volume': 'blobs', 'source_dir': '/workspace/data/live/blobs', 'snapshot_root': '/workspace/data/live/snapshots', 'delay_seconds': 0.2, 'fail_mode': 'none', 'fail_once_armed': False}
+INFO:     127.0.0.1:38648 - "PUT /admin/config HTTP/1.1" 200 OK
+2026-11-26 19:37:21,464 INFO snapshot-agent [blobs] snapshot request round=rnd_0002_a80785 delay=0.200
+2026-11-26 19:37:21,667 INFO snapshot-agent [blobs] snapshot ok round=rnd_0002_a80785 files=1 bytes=1579
+INFO:     127.0.0.1:38648 - "POST /snapshot HTTP/1.1" 200 OK
+2026-11-26 19:37:24,519 INFO snapshot-agent [blobs] snapshot request round=rnd_0003_1557e6 delay=0.200
+2026-11-26 19:37:24,722 INFO snapshot-agent [blobs] snapshot ok round=rnd_0003_1557e6 files=1 bytes=1579
+INFO:     127.0.0.1:38648 - "POST /snapshot HTTP/1.1" 200 OK
+2026-11-26 19:37:26,039 INFO snapshot-agent [blobs] config updated: {'volume': 'blobs', 'source_dir': '/workspace/data/live/blobs', 'snapshot_root': '/workspace/data/live/snapshots', 'delay_seconds': 0.1, 'fail_mode': 'none', 'fail_once_armed': False}
+INFO:     127.0.0.1:38648 - "PUT /admin/config HTTP/1.1" 200 OK
+2026-11-26 19:37:26,043 INFO snapshot-agent [blobs] config updated: {'volume': 'blobs', 'source_dir': '/workspace/data/live/blobs', 'snapshot_root': '/workspace/data/live/snapshots', 'delay_seconds': 0.1, 'fail_mode': 'none', 'fail_once_armed': True}
+INFO:     127.0.0.1:38648 - "PUT /admin/config HTTP/1.1" 200 OK
+2026-11-26 19:37:26,050 INFO snapshot-agent [blobs] snapshot request round=rnd_0004_a674ec delay=0.100
+2026-11-26 19:37:26,150 WARNING snapshot-agent [blobs] injected failure round=rnd_0004_a674ec one_shot=True
+INFO:     127.0.0.1:38648 - "POST /snapshot HTTP/1.1" 503 Service Unavailable
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [539]

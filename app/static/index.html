@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>制品库 · 双卷一致性备份台</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #ffffff;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --brand: #2563eb;
+    --brand-dark: #1d4ed8;
+    --green: #15803d;
+    --green-bg: #dcfce7;
+    --red: #b91c1c;
+    --red-bg: #fee2e2;
+    --amber: #b45309;
+    --amber-bg: #fef3c7;
+    --blue-bg: #dbeafe;
+    --blue: #1d4ed8;
+    --slate-bg: #f1f5f9;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 8px 24px -12px rgba(15, 23, 42, .18);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #f1f5f9; color: var(--ink);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Hiragino Sans GB", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header.top {
+    background: linear-gradient(120deg, #0f172a, #1e3a8a);
+    color: #fff; padding: 20px 28px; display: flex; align-items: center;
+    gap: 18px; flex-wrap: wrap;
+  }
+  header.top h1 { font-size: 19px; margin: 0; letter-spacing: .5px; }
+  header.top .sub { color: #bfdbfe; font-size: 12.5px; margin-top: 3px; }
+  .spacer { flex: 1; }
+  .wrap { max-width: 1280px; margin: 22px auto 60px; padding: 0 22px; }
+  .grid { display: grid; grid-template-columns: 5fr 7fr; gap: 18px; align-items: start; }
+  @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 18px 16px;
+    margin-bottom: 18px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .card .hint { color: var(--muted); font-size: 12.5px; margin: 0 0 14px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row + .row { margin-top: 10px; }
+  label.fld { font-size: 12.5px; color: #334155; display: inline-flex; align-items: center; gap: 6px; }
+  input[type=text], input[type=number], select {
+    border: 1px solid #cbd5e1; border-radius: 9px; padding: 8px 10px; font-size: 13.5px;
+    background: #fff; color: var(--ink); outline: none; min-width: 0;
+  }
+  input:focus, select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+  input[type=number] { width: 92px; }
+  input.wide { width: 220px; }
+  button {
+    border: 1px solid transparent; border-radius: 10px; padding: 9px 15px; font-size: 13.5px;
+    font-weight: 600; cursor: pointer; transition: transform .04s ease, background .15s, opacity .15s;
+  }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: var(--brand); color: #fff; }
+  .btn-primary:not(:disabled):hover { background: var(--brand-dark); }
+  .btn-danger { background: #dc2626; color: #fff; }
+  .btn-danger:not(:disabled):hover { background: #b91c1c; }
+  .btn-ghost { background: #fff; border-color: #cbd5e1; color: #1e293b; }
+  .btn-ghost:not(:disabled):hover { background: #f8fafc; }
+  .btn-small { padding: 5px 10px; font-size: 12.5px; border-radius: 8px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; border-radius: 999px;
+    padding: 3px 10px; font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .b-green { color: var(--green); background: var(--green-bg); }
+  .b-red { color: var(--red); background: var(--red-bg); }
+  .b-amber { color: var(--amber); background: var(--amber-bg); }
+  .b-blue { color: var(--blue); background: var(--blue-bg); }
+  .b-slate { color: #475569; background: var(--slate-bg); }
+  .pulse .dot { animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+  .stat-pill {
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22);
+    border-radius: 999px; padding: 5px 13px; font-size: 12.5px; color: #e2e8f0;
+  }
+  .stat-pill b { color: #fff; font-size: 13.5px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.8px; }
+  th, td { text-align: left; padding: 8px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; white-space: nowrap; }
+  td.mono, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+  .artifacts { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+  .artifacts table { border-collapse: collapse; }
+  .artifacts th { position: sticky; top: 0; background: #f8fafc; z-index: 1; }
+  .empty { color: var(--muted); text-align: center; padding: 22px 10px; font-size: 13px; }
+  .agent-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .agent-grid { grid-template-columns: 1fr; } }
+  .agent { border: 1px solid var(--line); border-radius: 12px; padding: 13px; background: #fcfdff; }
+  .agent h3 { margin: 0 0 2px; font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
+  .agent .meta { color: var(--muted); font-size: 11.8px; word-break: break-all; margin-bottom: 10px; }
+  .agent .row { margin-top: 8px; }
+  .round {
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px;
+    background: #fff;
+  }
+  .round.is-active { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+  .round-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .round-head .rid { font-weight: 700; }
+  .round .metrics { display: flex; gap: 16px; flex-wrap: wrap; margin: 10px 0 8px; }
+  .metric { font-size: 12.3px; color: var(--muted); }
+  .metric b { display: block; color: var(--ink); font-size: 14px; }
+  .vol-reports { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+  @media (max-width: 640px) { .vol-reports { grid-template-columns: 1fr; } }
+  .vol {
+    border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; font-size: 12.5px;
+    background: #f8fafc;
+  }
+  .vol.ok { background: #f0fdf4; border-color: #bbf7d0; }
+  .vol.bad { background: #fef2f2; border-color: #fecaca; }
+  .vol .t { font-weight: 700; display: flex; justify-content: space-between; gap: 8px; }
+  .vol .d { color: var(--muted); margin-top: 2px; word-break: break-word; }
+  .late {
+    margin-top: 8px; border: 1px dashed #f59e0b; background: #fffbeb; border-radius: 10px;
+    padding: 8px 11px; font-size: 12.3px; color: #92400e;
+  }
+  .failbox {
+    margin-top: 8px; background: var(--red-bg); color: #7f1d1d; border-radius: 10px;
+    padding: 8px 11px; font-size: 12.6px;
+  }
+  .winbar { height: 8px; border-radius: 999px; background: #e2e8f0; overflow: hidden; margin-top: 6px; }
+  .winbar > i { display: block; height: 100%; background: linear-gradient(90deg,#60a5fa,#2563eb); width: 100%; transition: width .2s linear; }
+  .winbar.urgent > i { background: linear-gradient(90deg,#fbbf24,#dc2626); }
+  .events { max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+  .event { display: flex; gap: 10px; padding: 7px 11px; border-bottom: 1px solid #f1f5f9; font-size: 12.5px; }
+  .event:last-child { border-bottom: 0; }
+  .event .ts { color: #94a3b8; font-family: ui-monospace, monospace; font-size: 11.5px; white-space: nowrap; padding-top: 1px; }
+  .event.error .msg { color: var(--red); }
+  .event.success .msg { color: var(--green); }
+  .event.warning .msg { color: var(--amber); }
+  .toast {
+    position: fixed; right: 22px; bottom: 22px; max-width: 380px; z-index: 50;
+    background: #111827; color: #fff; padding: 12px 16px; border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.35); font-size: 13px; opacity: 0; transform: translateY(8px);
+    transition: opacity .2s, transform .2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.err { background: #991b1b; }
+  .kvlist { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .kv { background: #f1f5f9; border-radius: 7px; padding: 2px 8px; font-size: 11.8px; color: #334155; }
+  a.dl { text-decoration: none; }
+  .scenarios { border-top: 1px dashed var(--line); margin-top: 14px; padding-top: 12px; }
+  .scenarios .label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>🧊 制品库 · 双卷一致性备份台</h1>
+    <div class="sub">索引卷与文件卷分开存储 · 同一轮快照才允许整组恢复 · 停写抓取窗口上限 3 秒</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="stat-pill">接单状态 <b id="accepting-pill">—</b></span>
+  <span class="stat-pill">在途写齐 <b id="inflight-pill">0</b></span>
+  <span class="stat-pill" id="active-round-pill">空闲</span>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+    <!-- LEFT: publish + agents -->
+    <div>
+      <section class="card">
+        <h2>① 发布样例制品</h2>
+        <p class="hint">每个制品分两次落盘：先写<b>文件卷 Blob</b>，间隔可调后再写<b>索引卷 Index</b>（提交点）。备份会先暂停接单并等在途制品写齐两卷。</p>
+        <div class="row">
+          <label class="fld">名称 <input class="wide" type="text" id="art-name" placeholder="留空自动命名" /></label>
+        </div>
+        <div class="row">
+          <label class="fld">两次落盘间隔(秒)
+            <input type="number" id="write-interval" min="0" max="60" step="0.1" value="1.2" data-testid="input-interval" />
+          </label>
+          <button class="btn-ghost btn-small" id="btn-save-interval">存为默认</button>
+          <button class="btn-primary" id="btn-publish" data-testid="btn-publish">发布样例制品</button>
+        </div>
+        <div class="row" id="publish-msg" style="display:none"></div>
+      </section>
+
+      <section class="card">
+        <h2>③ 本地快照端（按卷独立）</h2>
+        <p class="hint">快照端真实复制各自挂载卷到 <span class="mono">/snapshots/&lt;轮次&gt;/&lt;卷&gt;</span>。可调延迟、注入失败；延迟超过 3 秒窗口即判超时，迟到回报只归档。</p>
+        <div class="agent-grid" id="agents"><div class="empty">快照端状态加载中…</div></div>
+        <div class="scenarios">
+          <div class="label">快捷试跑（会自动设置延迟/失败并驱动 API）：</div>
+          <div class="row">
+            <button class="btn-ghost btn-small" id="scenario-a" data-testid="scenario-a">试跑 A：在途发布 → 写齐两卷 → 成功整组下载</button>
+            <button class="btn-ghost btn-small" id="scenario-b" data-testid="scenario-b">试跑 B：抓取超时 → 迟到回报不影响下一轮</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>事件流水</h2>
+        <p class="hint">暂停接单、排空、窗口、成败判定、迟到回报与恢复接单都会记录。</p>
+        <div class="events" id="events"><div class="empty">暂无事件</div></div>
+      </section>
+    </div>
+
+    <!-- RIGHT: backup + rounds + artifacts -->
+    <div>
+      <section class="card">
+        <h2>② 发起双卷备份</h2>
+        <p class="hint">一次只跑一轮：先暂停接单 → 等已接单制品写齐两卷 → 双卷并行抓取，两卷都在最多 3 秒停写窗口内回报成功才提供整组 zip；任一失败或超时立即恢复接单且本轮不供下载。</p>
+        <div class="row">
+          <button class="btn-danger" id="btn-backup" data-testid="btn-backup">发起双卷备份（仅一轮）</button>
+          <span id="backup-hint" class="hint" style="margin:0"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>备份轮次</h2>
+        <div id="rounds" data-testid="rounds"><div class="empty">还没有备份轮次</div></div>
+      </section>
+
+      <section class="card">
+        <h2>制品落盘明细</h2>
+        <p class="hint">可核对同一制品两次落盘的真实时间差。</p>
+        <div class="artifacts">
+          <table>
+            <thead><tr>
+              <th>ID / 名称</th><th>状态</th><th>间隔</th><th>文件卷落盘</th><th>索引卷落盘</th>
+            </tr></thead>
+            <tbody id="artifacts-body"><tr><td colspan="5" class="empty">暂无制品</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const LABEL_CN = { index: "索引卷 Index", blobs: "文件卷 Blob" };
+const ART_STATE_CN = {
+  accepted: ["已接单", "b-slate"],
+  blob_writing: ["正在写文件卷…", "b-blue pulse"],
+  interval_wait: ["两次落盘间隔中", "b-amber pulse"],
+  index_writing: ["正在写索引卷…", "b-blue pulse"],
+  complete: ["两卷写齐 ✓", "b-green"],
+  failed: ["落盘失败", "b-red"],
+};
+const ROUND_CN = {
+  draining: ["排空在途写入中", "b-blue pulse"],
+  snapshotting: ["停写抓取中", "b-amber pulse"],
+  success: ["成功 · 整组可下载", "b-green"],
+  failed: ["失败 · 本轮不供下载", "b-red"],
+};
+
+let lastState = null;
+let agentInfo = {};
+
+function fmtTime(unix) {
+  if (!unix) return "—";
+  const d = new Date(unix * 1000);
+  return d.toLocaleTimeString("zh-CN", { hour12: false }) + "." + String(d.getMilliseconds()).padStart(3, "0");
+}
+function fmtDur(s) {
+  if (s === null || s === undefined) return "—";
+  return (Math.round(s * 1000) / 1000).toFixed(2) + "s";
+}
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+let toastTimer = null;
+function toast(msg, isErr) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast show" + (isErr ? " err" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (t.className = "toast"), 3600);
+}
+async function api(path, opts) {
+  const resp = await fetch(path, {
+    headers: { "Content-Type": "application/json" },
+    ...opts,
+  });
+  let data = null;
+  try { data = await resp.json(); } catch (e) { /* no body */ }
+  if (!resp.ok) {
+    const err = new Error((data && (data.error || data.detail)) || ("HTTP " + resp.status));
+    err.status = resp.status; err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+/* ----------------------------- actions ---------------------------------- */
+$("btn-publish").addEventListener("click", async () => {
+  const body = {};
+  const name = $("art-name").value.trim();
+  if (name) body.name = name;
+  const iv = parseFloat($("write-interval").value);
+  if (!Number.isNaN(iv)) body.interval_seconds = iv;
+  $("btn-publish").disabled = true;
+  try {
+    const d = await api("/api/artifacts", { method: "POST", body: JSON.stringify(body) });
+    toast("已接单 " + d.artifact.id);
+    $("art-name").value = "";
+    refresh();
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    $("btn-publish").disabled = false;
+  }
+});
+
+$("btn-save-interval").addEventListener("click", async () => {
+  const iv = parseFloat($("write-interval").value);
+  if (Number.isNaN(iv)) return toast("请输入合法间隔", true);
+  try {
+    const s = await api("/api/settings", {
+      method: "POST", body: JSON.stringify({ write_interval_seconds: iv }),
+    });
+    $("write-interval").value = s.write_interval_seconds;
+    toast("默认间隔已更新为 " + s.write_interval_seconds + "s");
+  } catch (e) { toast(e.message, true); }
+});
+
+$("btn-backup").addEventListener("click", () => startBackup());
+async function startBackup() {
+  $("btn-backup").disabled = true;
+  try {
+    await api("/api/backup/start", { method: "POST" });
+    toast("新一轮双卷备份已开始：已暂停接单");
+    refresh();
+  } catch (e) {
+    toast(e.message, true);
+    refresh();
+  }
+}
+
+async function saveAgent(label, patch) {
+  try {
+    await api("/api/agents/" + label + "/config", { method: "PUT", body: JSON.stringify(patch) });
+    toast(LABEL_CN[label] + " 配置已更新");
+    loadAgents();
+  } catch (e) { toast(e.message, true); }
+}
+
+/* --------------------------- scenarios ----------------------------------- */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+$("scenario-a").addEventListener("click", async () => {
+  try {
+    await Promise.all([
+      api("/api/agents/index/config", { method: "PUT", body: JSON.stringify({ delay_seconds: 0.2, fail_mode: "none" }) }),
+      api("/api/agents/blobs/config", { method: "PUT", body: JSON.stringify({ delay_seconds: 0.2, fail_mode: "none" }) }),
+    ]);
+    $("write-interval").value = "1.2";
+    await api("/api/artifacts", { method: "POST", body: JSON.stringify({ name: "试跑A·在途制品", interval_seconds: 1.2 }) });
+    toast("已发布在途制品，0.3s 后发起备份，观察排空等待…");
+    await sleep(300);
+    await api("/api/backup/start", { method: "POST" });
+    loadAgents(); refresh();
+  } catch (e) { toast(e.message, true); }
+});
+
+$("scenario-b").addEventListener("click", async () => {
+  try {
+    toast("试跑 B：索引卷延迟 4.5s（超过 3s 窗口），文件卷 0.2s");
+    await Promise.all([
+      api("/api/agents/index/config", { method: "PUT", body: JSON.stringify({ delay_seconds: 4.5, fail_mode: "none" }) }),
+      api("/api/agents/blobs/config", { method: "PUT", body: JSON.stringify({ delay_seconds: 0.2, fail_mode: "none" }) }),
+    ]);
+    let d;
+    try { d = await api("/api/backup/start", { method: "POST" }); }
+    catch (e) {
+      if (e.status === 409) { toast("已有轮次在跑，请等它结束后再点试跑 B", true); return; }
+      throw e;
+    }
+    const rid = d.round.id;
+    // Wait for round 1 to settle as timeout.
+    for (let i = 0; i < 60; i++) {
+      await sleep(250);
+      const r = (await api("/api/rounds/" + rid)).round;
+      if (r.terminal) break;
+    }
+    toast("首轮已超时失败并恢复接单；立刻把索引延迟调回 0.2s 并发起下一轮");
+    await api("/api/agents/index/config", { method: "PUT", body: JSON.stringify({ delay_seconds: 0.2 }) });
+    await api("/api/backup/start", { method: "POST" });
+    loadAgents(); refresh();
+    // The late report from round 1 lands around t=4.5s; polling will render it.
+  } catch (e) { toast(e.message, true); }
+});
+
+/* ----------------------------- render ----------------------------------- */
+function renderTop(s) {
+  const pill = $("accepting-pill");
+  if (s.accepting) {
+    pill.textContent = "接单中";
+    pill.parentElement.style.borderColor = "rgba(134,239,172,.6)";
+    pill.style.color = "#bbf7d0";
+  } else {
+    pill.textContent = "已暂停";
+    pill.style.color = "#fecaca";
+  }
+  $("inflight-pill").textContent = s.in_flight;
+  $("active-round-pill").innerHTML = s.active_round_id
+    ? '备份轮次 <b class="mono">' + esc(s.active_round_id) + "</b>"
+    : "无活动轮次";
+  $("btn-publish").disabled = !s.accepting;
+  $("btn-publish").textContent = s.accepting ? "发布样例制品" : "备份中 · 已暂停接单";
+  const active = s.rounds.find((r) => r.id === s.active_round_id);
+  $("btn-backup").disabled = !!s.active_round_id;
+  $("backup-hint").textContent = s.active_round_id
+    ? "轮次 " + s.active_round_id + " 正在进行（" + (ROUND_CN[active?.state]?.[0] || "") + "），结束后才能发起下一轮"
+    : "当前空闲，可以发起一轮双卷备份";
+  if (document.activeElement !== $("write-interval") && !$("write-interval").dataset.touched) {
+    $("write-interval").value = s.settings.write_interval_seconds;
+  }
+}
+
+function renderArtifacts(s) {
+  const tb = $("artifacts-body");
+  if (!s.artifacts.length) {
+    tb.innerHTML = '<tr><td colspan="5" class="empty">暂无制品</td></tr>';
+    return;
+  }
+  tb.innerHTML = s.artifacts.map((a) => {
+    const [cn, cls] = ART_STATE_CN[a.state] || [a.state, "b-slate"];
+    return "<tr>" +
+      "<td><div class='mono'>" + esc(a.id) + "</div><div>" + esc(a.name) + "</div>" +
+        (a.error ? "<div style='color:var(--red)'>" + esc(a.error) + "</div>" : "") + "</td>" +
+      "<td><span class='badge " + cls + "'>" + esc(cn) + "</span></td>" +
+      "<td class='mono'>" + fmtDur(a.interval_seconds) + "</td>" +
+      "<td class='mono'>" + fmtTime(a.blob_at_unix) + "</td>" +
+      "<td class='mono'>" + fmtTime(a.index_at_unix) + "</td>" +
+    "</tr>";
+  }).join("");
+}
+
+function volBlock(label, rep) {
+  if (!rep) {
+    return "<div class='vol'><div class='t'><span>" + LABEL_CN[label] + "</span>" +
+      "<span class='badge b-slate'>等待回报</span></div>" +
+      "<div class='d'>窗口内尚未收到回报…</div></div>";
+  }
+  if (rep.ok) {
+    return "<div class='vol ok'><div class='t'><span>" + LABEL_CN[label] + "</span>" +
+      "<span class='badge b-green'>按时成功</span></div>" +
+      "<div class='d'>文件 " + esc(rep.files) + " · " + esc(rep.bytes) + " B · " +
+      "端到端 " + fmtDur(rep.client_elapsed_seconds) + "</div></div>";
+  }
+  return "<div class='vol bad'><div class='t'><span>" + LABEL_CN[label] + "</span>" +
+    "<span class='badge b-red'>失败</span></div>" +
+    "<div class='d'>" + esc(rep.error || rep.error_code || "未知错误") + "</div></div>";
+}
+
+function renderRounds(s) {
+  const box = $("rounds");
+  if (!s.rounds.length) { box.innerHTML = '<div class="empty">还没有备份轮次</div>'; return; }
+  box.innerHTML = s.rounds.map((r) => {
+    const [cn, cls] = ROUND_CN[r.state] || [r.state, "b-slate"];
+    let win = "";
+    if (r.state === "snapshotting" && r.window_remaining_seconds !== null) {
+      const pct = Math.max(0, Math.min(100, (r.window_remaining_seconds / r.window_seconds) * 100));
+      const urgent = r.window_remaining_seconds < 1 ? " urgent" : "";
+      win = "<div style='margin-top:8px'><div class='row' style='justify-content:space-between'>" +
+        "<span class='metric'>停写窗口剩余 <b>" + r.window_remaining_seconds.toFixed(2) + "s / " +
+        r.window_seconds.toFixed(1) + "s</b></span></div>" +
+        "<div class='winbar" + urgent + "'><i style='width:" + pct + "%'></i></div></div>";
+    }
+    let download = "";
+    if (r.download_available) {
+      download = "<a class='dl' href='/api/rounds/" + encodeURIComponent(r.id) + "/download' target='_blank'>" +
+        "<button class='btn-primary btn-small'>⬇ 下载整组快照 zip（两卷同轮）</button></a>";
+    } else if (r.state === "success" && r.bundle.state !== "ready") {
+      download = "<span class='badge b-blue pulse'>整组压缩包" + esc(r.bundle.state) + "…</span>";
+    }
+    const late = (r.late_reports || []).map((lr) =>
+      "<div>· <b>" + LABEL_CN[lr.label] + "</b> 迟到" + (lr.report.ok ? "成功" : "失败") +
+      "回报（端到端 " + fmtDur(lr.report.client_elapsed_seconds) +
+      "）— 已归档，未改变本轮结果</div>").join("");
+    return "<div class='round" + (s.active_round_id === r.id ? " is-active" : "") + "' data-testid='round-" + esc(r.id) + "'>" +
+      "<div class='round-head'>" +
+        "<span class='rid mono'>" + esc(r.id) + "</span>" +
+        "<span class='badge " + cls + "'>" + esc(cn) + "</span>" +
+        (download ? "<span class='spacer' style='flex:1'></span>" + download : "") +
+      "</div>" +
+      "<div class='metrics'>" +
+        "<span class='metric'>排空耗时<b>" + fmtDur(r.drain_seconds) + "</b></span>" +
+        "<span class='metric'>抓取窗口<b>" + (r.window_seconds ? r.window_seconds.toFixed(1) + "s 上限" : "—") + "</b></span>" +
+        "<span class='metric'>轮次总耗时<b>" + fmtDur(r.total_seconds) + "</b></span>" +
+        "<span class='metric'>暂停时在途<b>" + (r.inflight_at_pause.length) + " 个</b></span>" +
+      "</div>" +
+      (r.inflight_at_pause.length ? "<div class='kvlist'>" +
+        r.inflight_at_pause.map((x) => "<span class='kv mono'>" + esc(x) + "</span>").join("") + "</div>" : "") +
+      win +
+      "<div class='vol-reports'>" + volBlock("index", r.reports.index) + volBlock("blobs", r.reports.blobs) + "</div>" +
+      (r.failure_message ? "<div class='failbox'><b>判定：</b>" + esc(r.failure_message) + "</div>" : "") +
+      (late ? "<div class='late' data-testid='late-reports'><b>迟到回报（" + r.late_report_count + "）：</b>" + late + "</div>" : "") +
+    "</div>";
+  }).join("");
+}
+
+function renderEvents(s) {
+  const box = $("events");
+  if (!s.events.length) { box.innerHTML = '<div class="empty">暂无事件</div>'; return; }
+  box.innerHTML = s.events.map((e) =>
+    "<div class='event " + esc(e.level) + "'><span class='ts'>" + fmtTime(e.at_unix) +
+    "</span><span class='msg'>" + esc(e.message) + "</span></div>").join("");
+}
+
+function renderAgents() {
+  const box = $("agents");
+  const labels = ["index", "blobs"];
+  box.innerHTML = labels.map((label) => {
+    const info = agentInfo[label];
+    const cn = LABEL_CN[label];
+    if (!info) return "<div class='agent'><h3>" + cn + "</h3><div class='meta'>加载中…</div></div>";
+    if (!info.reachable) {
+      return "<div class='agent'><h3>" + cn +
+        " <span class='badge b-red'><span class='dot'></span>不可达</span></h3>" +
+        "<div class='meta'>" + esc(info.error) + "</div>" +
+        agentControls(label, { delay_seconds: 0.3, fail_mode: "none", fail_once_armed: false }, true) +
+        "</div>";
+    }
+    const c = info.config;
+    return "<div class='agent'><h3>" + cn +
+      " <span class='badge b-green'><span class='dot'></span>在线</span>" +
+      (c.fail_once_armed ? "<span class='badge b-amber'>已武装一次性失败</span>" : "") +
+      (c.fail_mode === "always_error" ? "<span class='badge b-red'>持续失败中</span>" : "") +
+      "</h3>" +
+      "<div class='meta'>挂载源 " + esc(c.source_dir) + "<br/>快照根 " + esc(c.snapshot_root) + "</div>" +
+      "<div class='kvlist'><span class='kv'>当前延迟 " + esc(c.delay_seconds) + "s</span>" +
+      "<span class='kv'>失败模式 " + esc(c.fail_mode) + "</span></div>" +
+      agentControls(label, c, false) +
+      "</div>";
+  }).join("");
+  labels.forEach((label) => {
+    const apply = $("agent-apply-" + label);
+    if (apply) apply.addEventListener("click", () => {
+      const delay = parseFloat($("agent-delay-" + label).value);
+      const mode = $("agent-mode-" + label).value;
+      const patch = { fail_mode: mode };
+      if (!Number.isNaN(delay)) patch.delay_seconds = delay;
+      saveAgent(label, patch);
+    });
+    const once = $("agent-once-" + label);
+    if (once) once.addEventListener("click", () => saveAgent(label, { fail_once: true }));
+  });
+}
+
+function agentControls(label, c, unreachable) {
+  return "<div class='row'>" +
+    "<label class='fld'>延迟(s)<input type='number' min='0' max='30' step='0.1' id='agent-delay-" + label +
+      "' value='" + esc(c.delay_seconds) + "'></label>" +
+    "<label class='fld'>失败<select id='agent-mode-" + label + "'>" +
+      "<option value='none'" + (c.fail_mode === "none" ? " selected" : "") + ">正常</option>" +
+      "<option value='always_error'" + (c.fail_mode === "always_error" ? " selected" : "") + ">持续回报失败</option>" +
+    "</select></label>" +
+    "<button class='btn-ghost btn-small' id='agent-apply-" + label + "'>应用</button>" +
+    "<button class='btn-small' style='background:#fef2f2;color:#b91c1c;border:1px solid #fecaca' id='agent-once-" + label +
+      "' " + (unreachable ? "disabled" : "") + ">下一次抓取失败</button>" +
+  "</div>";
+}
+
+async function refresh() {
+  try {
+    lastState = await api("/api/state");
+    renderTop(lastState);
+    renderArtifacts(lastState);
+    renderRounds(lastState);
+    renderEvents(lastState);
+  } catch (e) { /* polling will retry */ }
+}
+async function loadAgents() {
+  try {
+    const d = await api("/api/agents");
+    agentInfo = d.agents || {};
+    // Do not rebuild the controls while the user is typing in them.
+    const agentsBox = $("agents");
+    if (!agentsBox.contains(document.activeElement)) renderAgents();
+  } catch (e) { /* retry next tick */ }
+}
+$("write-interval").addEventListener("input", () => { $("write-interval").dataset.touched = "1"; });
+
+refresh();
+loadAgents();
+setInterval(refresh, 700);
+setInterval(loadAgents, 2500);
+</script>
+</body>
+</html>

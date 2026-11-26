@@ -1,0 +1,18 @@
+{
+  "status": "succeeded",
+  "round_id": "rnd_0002_09647f",
+  "volume": "blobs",
+  "copied_from": "/workspace/data/final/blobs",
+  "snapshot_path": "/workspace/data/final/snapshots/rnd_0002_09647f/blobs",
+  "files": 1,
+  "bytes": 1579,
+  "copy_seconds": 0.00712052802555263,
+  "copied_at_unix": 1795721321.3235161,
+  "file_manifest": [
+    {
+      "path": "art_00001_e152c7.bin",
+      "size_bytes": 1579,
+      "sha256": "04dfce651da31eb7c3f92ad578a3890cf89eb7a5f3a279dfffdcd1546bfdb099"
+    }
+  ]
+}

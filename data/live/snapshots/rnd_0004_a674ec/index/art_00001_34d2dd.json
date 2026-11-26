@@ -1,0 +1,12 @@
+{
+  "id": "art_00001_34d2dd",
+  "seq": 1,
+  "name": "试跑A-在途制品",
+  "blob_file": "art_00001_34d2dd.bin",
+  "size_bytes": 1579,
+  "sha256": "3ed61ef4458c2337187d5639be23cd53bf2378c9884920dea5a11077d8156667",
+  "interval_seconds": 2.0,
+  "accepted_at_unix": 1795721839.093702,
+  "blob_at_unix": 1795721839.0972347,
+  "index_at_unix": 1795721841.0969813
+}

@@ -1,0 +1,23 @@
+{
+  "status": "succeeded",
+  "round_id": "rnd_0005_ea56b5",
+  "volume": "index",
+  "copied_from": "/workspace/data/final/index",
+  "snapshot_path": "/workspace/data/final/snapshots/rnd_0005_ea56b5/index",
+  "files": 2,
+  "bytes": 723,
+  "copy_seconds": 0.0030868130270391703,
+  "copied_at_unix": 1795721425.123126,
+  "file_manifest": [
+    {
+      "path": "art_00001_e152c7.json",
+      "size_bytes": 362,
+      "sha256": "78d81037610919af814e543bcf6e453d59d223da1e100aa3e7512799bfa5e959"
+    },
+    {
+      "path": "art_00002_c34219.json",
+      "size_bytes": 361,
+      "sha256": "7a51a73308dcc6d53970150e63ee07ab973daf96fdbde1756dc2d2a64e7125a7"
+    }
+  ]
+}

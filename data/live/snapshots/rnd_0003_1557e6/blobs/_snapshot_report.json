@@ -1,0 +1,18 @@
+{
+  "status": "succeeded",
+  "round_id": "rnd_0003_1557e6",
+  "volume": "blobs",
+  "copied_from": "/workspace/data/live/blobs",
+  "snapshot_path": "/workspace/data/live/snapshots/rnd_0003_1557e6/blobs",
+  "files": 1,
+  "bytes": 1579,
+  "copy_seconds": 0.0020336390007287264,
+  "copied_at_unix": 1795721844.7225387,
+  "file_manifest": [
+    {
+      "path": "art_00001_34d2dd.bin",
+      "size_bytes": 1579,
+      "sha256": "3ed61ef4458c2337187d5639be23cd53bf2378c9884920dea5a11077d8156667"
+    }
+  ]
+}

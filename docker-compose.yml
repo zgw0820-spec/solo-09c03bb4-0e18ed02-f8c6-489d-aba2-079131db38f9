@@ -1,0 +1,70 @@
+# 双卷制品库 + 两个独立快照端 + Web 备份台
+#
+# 三个宿主机目录以 bind mount 形式充当三块卷，便于直接在本机查看真实落盘与复制结果：
+#   ./data/index     -> 索引卷
+#   ./data/blobs     -> 文件（制品）卷
+#   ./data/snapshots -> 快照共享卷（两个快照端按轮次写入，Web 从此处打整组 zip）
+#
+# 若要换成 Docker named volumes，把三处 ./data/... 替换成命名卷并在底部 volumes: 声明即可。
+services:
+  snap-index:
+    build: .
+    image: artifact-vault-lab:latest
+    command: ["uvicorn", "app.agent.snapshot_agent:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      VOLUME_LABEL: index
+      SOURCE_DIR: /source
+      SNAPSHOT_ROOT: /snapshots
+      AGENT_DELAY_SECONDS: "0.3"
+      AGENT_FAIL_MODE: none
+    volumes:
+      - ./data/index:/source:ro
+      - ./data/snapshots:/snapshots
+    ports:
+      - "18001:8001"
+    init: true
+    restart: unless-stopped
+
+  snap-blob:
+    build: .
+    image: artifact-vault-lab:latest
+    command: ["uvicorn", "app.agent.snapshot_agent:app", "--host", "0.0.0.0", "--port", "8002"]
+    environment:
+      VOLUME_LABEL: blobs
+      SOURCE_DIR: /source
+      SNAPSHOT_ROOT: /snapshots
+      AGENT_DELAY_SECONDS: "0.3"
+      AGENT_FAIL_MODE: none
+    volumes:
+      - ./data/blobs:/source:ro
+      - ./data/snapshots:/snapshots
+    ports:
+      - "18002:8002"
+    init: true
+    restart: unless-stopped
+
+  web:
+    build: .
+    image: artifact-vault-lab:latest
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      INDEX_DIR: /volumes/index
+      BLOB_DIR: /volumes/blobs
+      SNAPSHOT_DIR: /snapshots
+      BUNDLE_DIR: /snapshots/bundles
+      SNAP_INDEX_URL: http://snap-index:8001
+      SNAP_BLOB_URL: http://snap-blob:8002
+      SNAPSHOT_WINDOW_SECONDS: "3.0"
+      WRITE_INTERVAL_SECONDS: "1.2"
+      DRAIN_TIMEOUT_SECONDS: "60"
+    volumes:
+      - ./data/index:/volumes/index
+      - ./data/blobs:/volumes/blobs
+      - ./data/snapshots:/snapshots
+    ports:
+      - "8000:8000"
+    depends_on:
+      - snap-index
+      - snap-blob
+    init: true
+    restart: unless-stopped
