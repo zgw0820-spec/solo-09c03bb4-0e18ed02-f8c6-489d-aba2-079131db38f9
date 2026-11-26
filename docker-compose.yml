@@ -57,6 +57,7 @@ services:
       SNAPSHOT_WINDOW_SECONDS: "3.0"
       WRITE_INTERVAL_SECONDS: "1.2"
       DRAIN_TIMEOUT_SECONDS: "60"
+      RESERVATION_TTL_SECONDS: "10"
     volumes:
       - ./data/index:/volumes/index
       - ./data/blobs:/volumes/blobs

@@ -15,6 +15,9 @@ from .manager import (
     AcceptancePaused,
     AgentConfigError,
     Manager,
+    NotPaused,
+    ReservationNotFound,
+    ReservationNotWithdrawable,
     RoundAlreadyActive,
 )
 
@@ -103,6 +106,47 @@ def create_app(
                 },
             )
         return {"ok": True, "round": rnd.to_dict()}
+
+    @app.post("/api/publish-queue", status_code=201)
+    async def queue_publish(req: ArtifactRequest) -> dict[str, Any]:
+        """Queue a publish order while acceptance is paused (e.g. mid-backup).
+
+        The queue lives in this web process only; nothing is written to the
+        volumes while queued, and a queued order can be withdrawn.
+        """
+        try:
+            rsv = manager.queue_publish(req.name, req.interval_seconds)
+        except NotPaused:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "ok": False,
+                    "error_code": "not_paused",
+                    "error": "当前正在接单，无需排队，请直接发布",
+                },
+            )
+        return {"ok": True, "reservation": rsv.to_dict()}
+
+    @app.post("/api/publish-queue/{reservation_id}/withdraw")
+    async def withdraw_publish(reservation_id: str) -> dict[str, Any]:
+        try:
+            rsv = manager.withdraw_reservation(reservation_id)
+        except ReservationNotFound:
+            return JSONResponse(
+                status_code=404,
+                content={"ok": False, "error_code": "reservation_not_found", "error": "预约不存在"},
+            )
+        except ReservationNotWithdrawable as exc:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "ok": False,
+                    "error_code": "reservation_not_queued",
+                    "error": f"该预约已经是 {exc.state}，不能再撤回",
+                    "state": exc.state,
+                },
+            )
+        return {"ok": True, "reservation": rsv.to_dict()}
 
     @app.get("/api/rounds/{round_id}")
     async def get_round(round_id: str) -> dict[str, Any]:

@@ -6,6 +6,9 @@ Covers:
   B. capture timeout (>3s agent latency) -> no download, resume -> late report
      from round 1 cannot change its verdict or interfere with round 2
   C. injected one-shot agent failure -> immediate failure + resume
+  D. queued publish while paused: nothing written, withdraw never publishes,
+     valid reservations accepted in order on resume, next round drains them
+  E. a reservation that sits past its 10s TTL auto-expires and is never published
 
 Stdlib only.  Usage: scripts/trial.py [web_base_url]
 """
@@ -20,6 +23,7 @@ import urllib.request
 import zipfile
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000"
+RUN = str(int(time.time()))[-5:]  # unique suffixes: repeat runs must not collide
 PASS = "✅"
 FAIL = "❌"
 
@@ -215,12 +219,122 @@ def scenario_c():
           and any(x["label"] == "index" and x["report"]["ok"] for x in late["late_reports"]))
 
 
+def wait_reservation(rid: str, state: str, timeout: float = 15.0):
+    end = time.monotonic() + timeout
+    last = None
+    while time.monotonic() < end:
+        _, s, _ = call("GET", "/api/state")
+        last = next((r for r in s["reservations"] if r["id"] == rid), None)
+        if last and last["state"] == state:
+            return last
+        time.sleep(0.1)
+    return last
+
+
+def scenario_d():
+    print("\n=== 试跑 D：暂停期间排队发布 → 撤回单不发布 → 恢复接单按序接下 → 下一轮先排空 ===")
+    call("PUT", "/api/agents/index/config", {"delay_seconds": 0.2, "fail_mode": "none"})
+    call("PUT", "/api/agents/blobs/config", {"delay_seconds": 0.2, "fail_mode": "none"})
+
+    st, d, _ = call("POST", "/api/artifacts", {"name": "D-在途-" + RUN, "interval_seconds": 2.0})
+    inflight_id = d["artifact"]["id"]
+    time.sleep(0.2)
+    st, d, _ = call("POST", "/api/backup/start")
+    rid1 = d["round"]["id"]
+    check("备份开始、接单暂停", st == 201)
+
+    st, d, _ = call("POST", "/api/artifacts", {"name": "D-直接发布-" + RUN})
+    check("暂停期间原发布接口仍 409", st == 409 and d["error_code"] == "acceptance_paused",
+          f"status={st}")
+
+    st, q1, _ = call("POST", "/api/publish-queue", {"name": "D-预约甲-" + RUN, "interval_seconds": 0.5})
+    check("排队发布甲 (201/queued)", st == 201 and q1["reservation"]["state"] == "queued")
+    st, q2, _ = call("POST", "/api/publish-queue", {"name": "D-预约乙-" + RUN, "interval_seconds": 0.5})
+    check("排队发布乙 (201/queued)", st == 201 and q2["reservation"]["state"] == "queued")
+    r1, r2 = q1["reservation"]["id"], q2["reservation"]["id"]
+
+    _, s, _ = call("GET", "/api/state")
+    names = {a["name"] for a in s["artifacts"]}
+    check("排队期间不写盘（未出现制品、无 artifact 记录）",
+          "D-预约甲-" + RUN not in names and "D-预约乙-" + RUN not in names)
+    print(f"  ℹ 排队中数: {s['queued_reservations']}")
+    check("排队期间两单均无对应制品记录",
+          not any(a["reservation_id"] in (r1, r2) for a in s["artifacts"]))
+
+    st, d, _ = call("POST", f"/api/publish-queue/{r2}/withdraw")
+    check("撤回乙单成功", st == 200 and d["reservation"]["state"] == "withdrawn")
+    st, d, _ = call("POST", f"/api/publish-queue/{r2}/withdraw")
+    check("重复撤回被拒 (409)", st == 409 and d["error_code"] == "reservation_not_queued")
+
+    rr = wait_round(rid1)
+    check("首轮成功结束", rr["state"] == "success", rr["state"])
+    _, s, _ = call("GET", "/api/state")
+    by_id = {r["id"]: r for r in s["reservations"]}
+    check("恢复接单后甲单已接单", by_id[r1]["state"] == "accepted"
+          and by_id[r1]["artifact_id"], str(by_id[r1]["state"]))
+    check("乙单保持已撤回、未产生制品", by_id[r2]["state"] == "withdrawn"
+          and by_id[r2]["artifact_id"] is None)
+    names = {a["name"] for a in s["artifacts"]}
+    check("乙单从未发布", "D-预约乙-" + RUN not in names)
+    check("甲单制品已出现", "D-预约甲-" + RUN in names)
+
+    # Immediately start the next round: it must wait for the accepted order.
+    t0 = time.monotonic()
+    st, d, _ = call("POST", "/api/backup/start")
+    rid2 = d["round"]["id"] if d and "round" in d else None
+    check("恢复后立刻发起下一轮 (201)", st == 201, str(rid2))
+    rr2 = wait_round(rid2)
+    check("第二轮成功", rr2["state"] == "success", rr2["state"])
+    check("第二轮把甲单算作暂停时在途并先排空",
+          by_id[r1]["artifact_id"] in rr2["inflight_at_pause"]
+          and rr2["drain_seconds"] > 0.05,
+          f"drain={rr2['drain_seconds']:.2f}s inflight={len(rr2['inflight_at_pause'])} "
+          f"wall={time.monotonic() - t0:.2f}s")
+    _, s, _ = call("GET", "/api/state")
+    art = next(a for a in s["artifacts"] if a["id"] == by_id[r1]["artifact_id"])
+    check("甲单制品的两卷都已写齐再被抓取", art["state"] == "complete"
+          and art["blob_at_unix"] and art["index_at_unix"])
+
+
+def scenario_e():
+    print("\n=== 试跑 E：预约满 10 秒仍未接单 → 自动作废 → 恢复接单也不发布 ===")
+    call("PUT", "/api/agents/index/config", {"delay_seconds": 0.2, "fail_mode": "none"})
+    call("PUT", "/api/agents/blobs/config", {"delay_seconds": 0.2, "fail_mode": "none"})
+
+    # A 14s in-flight order keeps acceptance paused well past the 10s TTL.
+    call("POST", "/api/artifacts", {"name": "E-慢在途-" + RUN, "interval_seconds": 14})
+    time.sleep(0.2)
+    st, d, _ = call("POST", "/api/backup/start")
+    rid = d["round"]["id"]
+    st, q, _ = call("POST", "/api/publish-queue", {"name": "E-等到作废-" + RUN, "interval_seconds": 0})
+    rsv_id = q["reservation"]["id"]
+    t0 = time.monotonic()
+    expired = wait_reservation(rsv_id, "expired", timeout=13)
+    elapsed = time.monotonic() - t0
+    check("预约在约 10s 时自动作废", expired is not None and expired["state"] == "expired",
+          f"{expired['state'] if expired else None} after {elapsed:.2f}s")
+    check("作废耗时接近 10s 上限 (<11.5s)", 9.5 <= elapsed < 11.5, f"{elapsed:.2f}s")
+    st, d, _ = call("POST", f"/api/publish-queue/{rsv_id}/withdraw")
+    check("已作废的预约不能撤回 (409)", st == 409 and d.get("state") == "expired")
+
+    rr = wait_round(rid, timeout=30)
+    check("慢在途制品写齐后本轮成功", rr["state"] == "success", rr["state"])
+    _, s, _ = call("GET", "/api/state")
+    names = {a["name"] for a in s["artifacts"]}
+    by_id = {r["id"]: r for r in s["reservations"]}
+    check("作废预约始终未发布", "E-等到作废-" + RUN not in names
+          and by_id[rsv_id]["state"] == "expired")
+    check("同轮其它排队均未残留", s["queued_reservations"] == 0)
+
+
 if __name__ == "__main__":
     print(f"针对 {BASE} 执行实况试跑")
     try:
         scenario_a()
         scenario_b()
         scenario_c()
+        scenario_d()
+        scenario_e()
     except Exception as exc:
         print(f"{FAIL} 试跑脚本异常: {type(exc).__name__}: {exc}")
         raise

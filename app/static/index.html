@@ -154,6 +154,11 @@
   a.dl { text-decoration: none; }
   .scenarios { border-top: 1px dashed var(--line); margin-top: 14px; padding-top: 12px; }
   .scenarios .label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .reservations { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .reservations .head { padding: 7px 11px; background: #f8fafc; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); }
+  .reservations table { font-size: 12.3px; }
+  .reservations td { padding: 7px 9px; }
+  .reservations .countdown { font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -184,8 +189,16 @@
           </label>
           <button class="btn-ghost btn-small" id="btn-save-interval">存为默认</button>
           <button class="btn-primary" id="btn-publish" data-testid="btn-publish">发布样例制品</button>
+          <button class="btn-ghost" id="btn-queue" data-testid="btn-queue" title="仅在暂停接单（备份进行中）时可排队">排队发布</button>
         </div>
         <div class="row" id="publish-msg" style="display:none"></div>
+        <div class="reservations" id="reservations-box" data-testid="reservations" style="display:none">
+          <div class="head">排队发布预约（仅在本 Web 进程内有效；排队时不写盘，<b>10 秒</b>内未被接单自动作废）</div>
+          <table>
+            <thead><tr><th>预约 / 名称</th><th>状态</th><th>剩余</th><th>结果</th><th></th></tr></thead>
+            <tbody id="reservations-body"></tbody>
+          </table>
+        </div>
       </section>
 
       <section class="card">
@@ -197,6 +210,10 @@
           <div class="row">
             <button class="btn-ghost btn-small" id="scenario-a" data-testid="scenario-a">试跑 A：在途发布 → 写齐两卷 → 成功整组下载</button>
             <button class="btn-ghost btn-small" id="scenario-b" data-testid="scenario-b">试跑 B：抓取超时 → 迟到回报不影响下一轮</button>
+          </div>
+          <div class="row">
+            <button class="btn-ghost btn-small" id="scenario-c" data-testid="scenario-c">试跑 C：暂停期间排队发布 → 撤回一单 → 恢复接单按序接下</button>
+            <button class="btn-ghost btn-small" id="scenario-d" data-testid="scenario-d">试跑 D：预约满 10 秒未接单 → 自动作废不发布</button>
           </div>
         </div>
       </section>
@@ -260,6 +277,12 @@ const ROUND_CN = {
   success: ["成功 · 整组可下载", "b-green"],
   failed: ["失败 · 本轮不供下载", "b-red"],
 };
+const RSV_CN = {
+  queued: ["排队中 · 未接单", "b-amber pulse"],
+  accepted: ["已接单 ✓", "b-green"],
+  withdrawn: ["已撤回", "b-slate"],
+  expired: ["已作废", "b-red"],
+};
 
 let lastState = null;
 let agentInfo = {};
@@ -302,11 +325,7 @@ async function api(path, opts) {
 
 /* ----------------------------- actions ---------------------------------- */
 $("btn-publish").addEventListener("click", async () => {
-  const body = {};
-  const name = $("art-name").value.trim();
-  if (name) body.name = name;
-  const iv = parseFloat($("write-interval").value);
-  if (!Number.isNaN(iv)) body.interval_seconds = iv;
+  const body = publishBody();
   $("btn-publish").disabled = true;
   try {
     const d = await api("/api/artifacts", { method: "POST", body: JSON.stringify(body) });
@@ -319,6 +338,38 @@ $("btn-publish").addEventListener("click", async () => {
     $("btn-publish").disabled = false;
   }
 });
+
+$("btn-queue").addEventListener("click", async () => {
+  const body = publishBody();
+  $("btn-queue").disabled = true;
+  try {
+    const d = await api("/api/publish-queue", { method: "POST", body: JSON.stringify(body) });
+    toast("已排队 " + d.reservation.id + "：暂停接单中，10 秒内未接单将自动作废");
+    $("art-name").value = "";
+    refresh();
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    $("btn-queue").disabled = false;
+  }
+});
+
+function publishBody() {
+  const body = {};
+  const name = $("art-name").value.trim();
+  if (name) body.name = name;
+  const iv = parseFloat($("write-interval").value);
+  if (!Number.isNaN(iv)) body.interval_seconds = iv;
+  return body;
+}
+
+async function withdrawReservation(id) {
+  try {
+    await api("/api/publish-queue/" + encodeURIComponent(id) + "/withdraw", { method: "POST" });
+    toast("预约 " + id + " 已撤回，不再发布");
+    refresh();
+  } catch (e) { toast(e.message, true); refresh(); }
+}
 
 $("btn-save-interval").addEventListener("click", async () => {
   const iv = parseFloat($("write-interval").value);
@@ -398,6 +449,70 @@ $("scenario-b").addEventListener("click", async () => {
   } catch (e) { toast(e.message, true); }
 });
 
+/* --------------------------- start a round ------------------------------ */
+async function ensureRoundIdle() {
+  const s = await api("/api/state");
+  if (s.active_round_id) throw new Error("已有轮次在跑，请等它结束");
+  return s;
+}
+
+async function waitRound(rid, tries = 160) {
+  for (let i = 0; i < tries; i++) {
+    await sleep(250);
+    const r = (await api("/api/rounds/" + rid)).round;
+    if (r.terminal) return r;
+  }
+  throw new Error("轮次迟迟未结束");
+}
+
+$("scenario-c").addEventListener("click", async () => {
+  // Demo: queue two publish orders while a round is running, withdraw one,
+  // and show the other accepted (in queue order) on resume.
+  try {
+    await ensureRoundIdle();
+    // A short in-flight write keeps acceptance paused long enough to queue.
+    await api("/api/artifacts", {
+      method: "POST", body: JSON.stringify({ name: "预约C·在途", interval_seconds: 2.5 }),
+    });
+    await sleep(200);
+    const d = await api("/api/backup/start", { method: "POST" });
+    const a = await api("/api/publish-queue", {
+      method: "POST", body: JSON.stringify({ name: "预约C·保留", interval_seconds: 0.5 }),
+    });
+    const b = await api("/api/publish-queue", {
+      method: "POST", body: JSON.stringify({ name: "预约C·撤回", interval_seconds: 0.5 }),
+    });
+    toast("已排队两单（尚未写盘），撤回第二单…");
+    await api("/api/publish-queue/" + b.reservation.id + "/withdraw", { method: "POST" });
+    const r = await waitRound(d.round.id);
+    toast("本轮结束（" + r.state + "）：预约 " + a.reservation.id + " 按序接单，撤回单不再发布");
+    refresh();
+  } catch (e) { toast(e.message, true); refresh(); }
+});
+
+$("scenario-d").addEventListener("click", async () => {
+  // Demo: keep acceptance paused longer than 10s (a long in-flight landing),
+  // queue a publish order, and watch it expire without ever being written.
+  try {
+    await ensureRoundIdle();
+    await api("/api/artifacts", {
+      method: "POST", body: JSON.stringify({ name: "预约D·慢在途", interval_seconds: 14 }),
+    });
+    await sleep(200);
+    await api("/api/backup/start", { method: "POST" });  // drains the 14s in-flight artifact
+    const a = await api("/api/publish-queue", {
+      method: "POST", body: JSON.stringify({ name: "预约D·等到作废", interval_seconds: 0 }),
+    });
+    toast("已排队 " + a.reservation.id + "：本轮排空约 14s，预约将在 10s 时自动作废");
+    await sleep(10600);
+    const s = await api("/api/state");
+    const rv = (s.reservations || []).find((x) => x.id === a.reservation.id);
+    toast("预约 " + a.reservation.id + " 当前状态：" + (rv ? rv.state : "?") + "（作废后不会发布）",
+          !!rv && rv.state === "expired");
+    refresh();
+  } catch (e) { toast(e.message, true); refresh(); }
+});
+
 /* ----------------------------- render ----------------------------------- */
 function renderTop(s) {
   const pill = $("accepting-pill");
@@ -411,18 +526,55 @@ function renderTop(s) {
   }
   $("inflight-pill").textContent = s.in_flight;
   $("active-round-pill").innerHTML = s.active_round_id
-    ? '备份轮次 <b class="mono">' + esc(s.active_round_id) + "</b>"
+    ? '备份轮次 <b class="mono">' + esc(s.active_round_id) + "</b>" +
+      (s.queued_reservations ? ' · 预约 <b>' + s.queued_reservations + "</b>" : "")
     : "无活动轮次";
+  // While paused the direct publish is disabled, but a queued order is
+  // available so the operator does not have to wait to click publish again.
   $("btn-publish").disabled = !s.accepting;
   $("btn-publish").textContent = s.accepting ? "发布样例制品" : "备份中 · 已暂停接单";
+  // The queue entry is always visible so the operator knows it exists; it
+  // only does anything while acceptance is paused.
+  $("btn-queue").disabled = s.accepting;
+  $("btn-queue").textContent = s.accepting ? "排队发布（暂停时可用）" : "排队发布（暂停接单中）";
   const active = s.rounds.find((r) => r.id === s.active_round_id);
   $("btn-backup").disabled = !!s.active_round_id;
   $("backup-hint").textContent = s.active_round_id
-    ? "轮次 " + s.active_round_id + " 正在进行（" + (ROUND_CN[active?.state]?.[0] || "") + "），结束后才能发起下一轮"
+    ? "轮次 " + s.active_round_id + " 正在进行（" + (ROUND_CN[active?.state]?.[0] || "") + "），结束后才能发起下一轮；期间可先「排队发布」"
     : "当前空闲，可以发起一轮双卷备份";
   if (document.activeElement !== $("write-interval") && !$("write-interval").dataset.touched) {
     $("write-interval").value = s.settings.write_interval_seconds;
   }
+}
+
+function renderReservations(s) {
+  const box = $("reservations-box");
+  const rs = s.reservations || [];
+  if (!rs.length) { box.style.display = "none"; return; }
+  box.style.display = "";
+  const tb = $("reservations-body");
+  tb.innerHTML = rs.map((r) => {
+    const [cn, cls] = RSV_CN[r.state] || [r.state, "b-slate"];
+    let countdown = "—";
+    if (r.state === "queued") {
+      countdown = "<span class='countdown'>" + (r.remaining_seconds ?? 0).toFixed(1) + "s</span>";
+    }
+    let result = esc(r.note || "");
+    if (r.state === "accepted" && r.artifact_id) {
+      result = "已接单为制品 <span class='mono'>" + esc(r.artifact_id) + "</span>";
+    }
+    const action = r.withdrawable
+      ? "<button class='btn-ghost btn-small' data-withdraw='" + esc(r.id) + "' data-testid='withdraw-" + esc(r.id) + "'>撤回</button>"
+      : "";
+    return "<tr data-testid='reservation-" + esc(r.id) + "'>" +
+      "<td><div class='mono'>" + esc(r.id) + "</div><div>" + esc(r.name) + "</div></td>" +
+      "<td><span class='badge " + cls + "'>" + esc(cn) + "</span></td>" +
+      "<td class='mono'>" + countdown + "</td>" +
+      "<td style='font-size:12px;color:var(--muted)'>" + result + "</td>" +
+      "<td>" + action + "</td></tr>";
+  }).join("");
+  tb.querySelectorAll("button[data-withdraw]").forEach((btn) =>
+    btn.addEventListener("click", () => withdrawReservation(btn.dataset.withdraw)));
 }
 
 function renderArtifacts(s) {
@@ -574,6 +726,7 @@ async function refresh() {
   try {
     lastState = await api("/api/state");
     renderTop(lastState);
+    renderReservations(lastState);
     renderArtifacts(lastState);
     renderRounds(lastState);
     renderEvents(lastState);

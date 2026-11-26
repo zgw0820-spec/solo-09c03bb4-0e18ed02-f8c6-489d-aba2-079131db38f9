@@ -10,4 +10,5 @@ data-local
 .pytest_cache
 tests
 scripts
+tools
 *.md

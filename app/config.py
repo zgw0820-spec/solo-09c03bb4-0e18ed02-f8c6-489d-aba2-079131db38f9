@@ -56,8 +56,13 @@ class Settings:
     # Per HTTP call to a snapshot agent; deliberately longer than the
     # capture window so late responses can still be observed and archived.
     agent_http_timeout_seconds: float
+    # A queued publish reservation that is not accepted by a backup round
+    # within this many seconds auto-expires and is never published.  The
+    # product rule is 10 seconds; overridable only to make tests/demos fast.
+    reservation_ttl_seconds: float = 10.0
     history_rounds: int = 50
     history_artifacts: int = 100
+    history_reservations: int = 100
     history_events: int = 200
 
     @staticmethod
@@ -79,6 +84,7 @@ class Settings:
             agent_http_timeout_seconds=max(
                 window + 5.0, _float("AGENT_HTTP_TIMEOUT_SECONDS", 20.0)
             ),
+            reservation_ttl_seconds=max(0.1, _float("RESERVATION_TTL_SECONDS", 10.0)),
         )
 
     def ensure_dirs(self) -> None:

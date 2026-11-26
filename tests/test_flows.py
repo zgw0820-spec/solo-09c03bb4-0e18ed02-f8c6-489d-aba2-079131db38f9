@@ -31,6 +31,7 @@ class Harness:
         drain_timeout: float = 10.0,
         index_delay: float = 0.05,
         blob_delay: float = 0.05,
+        reservation_ttl: float = 10.0,
     ):
         self._tmp = tempfile.TemporaryDirectory(prefix="vault-test-")
         root = Path(self._tmp.name)
@@ -53,6 +54,7 @@ class Harness:
             drain_timeout_seconds=drain_timeout,
             snapshot_window_seconds=window,
             agent_http_timeout_seconds=10.0,
+            reservation_ttl_seconds=reservation_ttl,
         )
         self.rt_index = AgentRuntime(
             label="index",
@@ -329,3 +331,193 @@ async def test_settings_update_and_unsafe_round_id_rejected(h: Harness):
         assert r.status_code == 422
     finally:
         await agent.aclose()
+
+
+# --------------------------------------------------------------------------- #
+# Queued publish ("排队发布") reservations
+# --------------------------------------------------------------------------- #
+def reservation(s: dict, rid: str) -> dict:
+    return next(r for r in s["reservations"] if r["id"] == rid)
+
+
+async def wait_reservation(h: Harness, rid: str, state: str, timeout: float = 8.0) -> dict:
+    s = await wait_for(
+        h, lambda st: reservation(st, rid)["state"] == state, timeout=timeout
+    )
+    return reservation(s, rid)
+
+
+@scenario(window=2.0, index_delay=1.2, blob_delay=0.05, reservation_ttl=30.0)
+async def test_queued_publish_does_not_write_then_withdraw_never_publishes(h: Harness):
+    # While accepting, the queue endpoint is the wrong entry point.
+    r = await h.client.post("/api/publish-queue", json={"name": "不该排队"})
+    assert r.status_code == 409 and r.json()["error_code"] == "not_paused"
+
+    rid = (await h.client.post("/api/backup/start")).json()["round"]["id"]
+    s = await state(h)
+    assert s["accepting"] is False
+
+    # Original publish endpoint must still be 409 while paused.
+    r = await h.client.post("/api/artifacts", json={"name": "备份期间"})
+    assert r.status_code == 409 and r.json()["error_code"] == "acceptance_paused"
+
+    # Queue a publish order: accepted into the queue, but nothing written.
+    r = await h.client.post(
+        "/api/publish-queue", json={"name": "排队制品", "interval_seconds": 0.1}
+    )
+    assert r.status_code == 201, r.text
+    rsv_id = r.json()["reservation"]["id"]
+    assert r.json()["reservation"]["state"] == "queued"
+
+    s = await state(h)
+    queued = reservation(s, rsv_id)
+    assert queued["state"] == "queued" and queued["withdrawable"] is True
+    assert queued["artifact_id"] is None
+    # Nothing on disk and no artifact registration while queued.
+    assert not list(h.blob_dir.glob("*.bin")), "queued order must not write blobs"
+    assert not list(h.index_dir.glob("*.json")), "queued order must not write index"
+    assert all(a["name"] != "排队制品" for a in s["artifacts"])
+
+    # Withdraw it: now it can never publish, not even when the round ends.
+    r = await h.client.post(f"/api/publish-queue/{rsv_id}/withdraw")
+    assert r.status_code == 200 and r.json()["reservation"]["state"] == "withdrawn"
+    r2 = await h.client.post(f"/api/publish-queue/{rsv_id}/withdraw")
+    assert r2.status_code == 409 and r2.json()["error_code"] == "reservation_not_queued"
+
+    rnd = await wait_terminal(h, rid)
+    assert rnd["state"] == "success"
+    s = await state(h)
+    assert s["accepting"] is True
+    assert reservation(s, rsv_id)["state"] == "withdrawn"
+    assert all(a["name"] != "排队制品" for a in s["artifacts"])
+    assert not list(h.blob_dir.glob("*.bin"))
+
+
+@scenario(window=2.0, index_delay=1.0, blob_delay=0.05, reservation_ttl=0.5)
+async def test_overdue_reservation_expires_and_never_publishes(h: Harness):
+    rid = (await h.client.post("/api/backup/start")).json()["round"]["id"]
+    r = await h.client.post("/api/publish-queue", json={"name": "过期预约", "interval_seconds": 0})
+    rsv_id = r.json()["reservation"]["id"]
+
+    # It expires by itself while the round is still running.
+    exp = await wait_reservation(h, rsv_id, "expired", timeout=4.0)
+    assert exp["withdrawable"] is False
+    # Expired reservations cannot be withdrawn either.
+    r = await h.client.post(f"/api/publish-queue/{rsv_id}/withdraw")
+    assert r.status_code == 409 and r.json()["state"] == "expired"
+
+    rnd = await wait_terminal(h, rid)
+    assert rnd["state"] == "success"
+    s = await state(h)
+    assert reservation(s, rsv_id)["state"] == "expired"
+    # Expiry is not publication: nothing was accepted or written.
+    assert all(a["name"] != "过期预约" for a in s["artifacts"])
+    assert not list(h.blob_dir.glob("*.bin"))
+
+
+@scenario(window=2.0, index_delay=0.6, blob_delay=0.05, reservation_ttl=30.0)
+async def test_resume_accepts_valid_reservations_in_order_before_new_orders(h: Harness):
+    rid1 = (await h.client.post("/api/backup/start")).json()["round"]["id"]
+
+    ids = []
+    for name in ("预约甲", "预约乙"):
+        r = await h.client.post(
+            "/api/publish-queue", json={"name": name, "interval_seconds": 0.8}
+        )
+        ids.append(r.json()["reservation"]["id"])
+
+    rnd1 = await wait_terminal(h, rid1)
+    assert rnd1["state"] == "success"
+
+    s = await state(h)
+    assert s["accepting"] is True
+    a = reservation(s, ids[0])
+    b = reservation(s, ids[1])
+    # Both accepted on resume, in queue order, still valid (within TTL).
+    assert a["state"] == "accepted" and b["state"] == "accepted", (a, b)
+    assert a["artifact_id"] and b["artifact_id"]
+    seq_of = {art["id"]: art["seq"] for art in s["artifacts"]}
+    assert seq_of[a["artifact_id"]] < seq_of[b["artifact_id"]]
+    # Round 1 started before them: they were not part of its pause snapshot.
+    assert a["artifact_id"] not in rnd1["inflight_at_pause"]
+    assert b["artifact_id"] not in rnd1["inflight_at_pause"]
+
+    # A new order arriving after resume gets a later seq than the reservations.
+    r = await h.client.post("/api/artifacts", json={"name": "新单", "interval_seconds": 0})
+    assert r.status_code == 201
+    new_id = r.json()["artifact"]["id"]
+    s = await state(h)
+    seq_of = {art["id"]: art["seq"] for art in s["artifacts"]}
+    assert seq_of[new_id] > seq_of[b["artifact_id"]]
+
+    # Immediately start the next round: it must drain (wait for) the
+    # just-accepted reservation artifacts to land on BOTH volumes.
+    r = await h.client.post("/api/backup/start")
+    assert r.status_code == 201
+    rid2 = r.json()["round"]["id"]
+    rnd2 = await wait_terminal(h, rid2)
+    assert rnd2["state"] == "success", rnd2
+    assert a["artifact_id"] in rnd2["inflight_at_pause"]
+    assert b["artifact_id"] in rnd2["inflight_at_pause"]
+    # They were accepted before the pause, so their two landings were drained.
+    assert rnd2["drain_seconds"] >= 0.5, rnd2["drain_seconds"]
+
+    # And the accepted reservation artifacts really landed on both volumes.
+    s = await state(h)
+    for rsv in (reservation(s, ids[0]), reservation(s, ids[1])):
+        art = next(x for x in s["artifacts"] if x["id"] == rsv["artifact_id"])
+        assert art["state"] == "complete"
+        assert (h.blob_dir / f"{art['id']}.bin").is_file()
+        assert (h.index_dir / f"{art['id']}.json").is_file()
+
+
+@scenario(window=0.5, index_delay=1.0, blob_delay=0.05, reservation_ttl=30.0)
+async def test_resume_accepts_after_failed_round_too(h: Harness):
+    rid1 = (await h.client.post("/api/backup/start")).json()["round"]["id"]
+    r = await h.client.post("/api/publish-queue", json={"name": "失败轮后预约"})
+    rsv_id = r.json()["reservation"]["id"]
+
+    rnd1 = await wait_terminal(h, rid1)
+    assert rnd1["state"] == "failed" and rnd1["failure_code"] == "capture_timeout"
+
+    s = await state(h)
+    assert s["accepting"] is True
+    rsv = reservation(s, rsv_id)
+    assert rsv["state"] == "accepted" and rsv["artifact_id"]
+    # Next round (started right away) waits for this accepted order.
+    rid2 = (await h.client.post("/api/backup/start")).json()["round"]["id"]
+    rnd2 = await wait_terminal(h, rid2)
+    assert rsv["artifact_id"] in rnd2["inflight_at_pause"]
+    assert rnd2["drain_seconds"] >= 0.1
+
+
+@scenario(window=2.0, index_delay=0.6, blob_delay=0.05, reservation_ttl=30.0)
+async def test_reservations_do_not_survive_a_web_restart(h: Harness):
+    rid = (await h.client.post("/api/backup/start")).json()["round"]["id"]
+    r = await h.client.post("/api/publish-queue", json={"name": "重启前预约"})
+    rsv_id = r.json()["reservation"]["id"]
+    assert r.json()["reservation"]["state"] == "queued"
+
+    # Simulate a fresh web process over the same settings/agents/volumes.
+    fresh = create_app(
+        h.settings,
+        transports={
+            "index": ASGITransport(app=h.agent_apps["index"]),
+            "blobs": ASGITransport(app=h.agent_apps["blobs"]),
+        },
+    )
+    fresh_client = httpx.AsyncClient(transport=ASGITransport(app=fresh), base_url="http://web2")
+    try:
+        st = (await fresh_client.get("/api/state")).json()
+        assert st["reservations"] == []
+        assert st["queued_reservations"] == 0
+        assert st["accepting"] is True
+        # The old id is unknown to the new process, not accepted from memory.
+        r = await fresh_client.post(f"/api/publish-queue/{rsv_id}/withdraw")
+        assert r.status_code == 404
+    finally:
+        await fresh_client.aclose()
+        await fresh.state.manager.aclose()
+
+    await wait_terminal(h, rid)
+

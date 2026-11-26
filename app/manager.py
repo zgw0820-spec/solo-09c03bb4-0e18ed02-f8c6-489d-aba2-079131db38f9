@@ -16,6 +16,16 @@ timeout), late tasks are *not* awaited by the state machine; instead a
 detached watcher archives their response as a "late report" on the OLD round.
 Late reports never mutate a settled round and never touch the acceptance
 flag, so they cannot interfere with the next round.
+
+Queued publish (reservations)
+-----------------------------
+While a round has acceptance paused, publish orders may be queued instead of
+rejected.  Queued orders are memory-only (no disk writes), can be withdrawn,
+and auto-expire 10s after queuing.  When a round settles, acceptance is
+resumed in one synchronous step: expire overdue orders -> accept still-valid
+orders in queue order (they join ``pending``) -> only then allow new orders.
+A round started right afterwards therefore drains those accepted orders to
+BOTH volumes before it captures.
 """
 from __future__ import annotations
 
@@ -55,6 +65,21 @@ class AcceptancePaused(Exception):
     def __init__(self, active_round_id: str | None):
         self.active_round_id = active_round_id
         super().__init__("artifact acceptance is paused for a backup round")
+
+
+class ReservationNotFound(Exception):
+    pass
+
+
+class NotPaused(Exception):
+    pass
+
+
+class ReservationNotWithdrawable(Exception):
+    def __init__(self, reservation_id: str, state: str):
+        self.reservation_id = reservation_id
+        self.state = state
+        super().__init__(f"reservation {reservation_id} is {state}, not withdrawable")
 
 
 class AgentConfigError(Exception):
@@ -102,9 +127,38 @@ class Artifact:
     size_bytes: int = 0
     sha256: str | None = None
     error: str | None = None
+    reservation_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {**self.__dict__}
+
+
+@dataclass
+class Reservation:
+    """A queued publish order.  Exists only in web-process memory."""
+
+    id: str
+    seq: int
+    name: str
+    interval_seconds: float
+    state: str = "queued"  # queued|accepted|withdrawn|expired
+    created_at_unix: float = field(default_factory=time.time)
+    expires_at_unix: float = 0.0
+    finalized_at_unix: float | None = None
+    accepted_at_unix: float | None = None
+    artifact_id: str | None = None
+    note: str | None = None
+
+    def to_dict(self, *, now: float | None = None) -> dict[str, Any]:
+        now = now if now is not None else time.time()
+        remaining = None
+        if self.state == "queued":
+            remaining = max(0.0, self.expires_at_unix - now)
+        return {
+            **self.__dict__,
+            "remaining_seconds": remaining,
+            "withdrawable": self.state == "queued",
+        }
 
 
 @dataclass
@@ -288,11 +342,18 @@ class Manager:
         self.pending: set[str] = set()
         self.drain_cond = asyncio.Condition()
 
+        # Queued publish orders live only in this web process.  They never
+        # touch disk while queued and never survive a restart (by design).
+        self.reservations: dict[str, Reservation] = {}
+        self.reservation_order: deque[str] = deque()
+        self._reservation_tasks: dict[str, asyncio.Task] = {}
+
         self.rounds: dict[str, Round] = {}
         self.round_order: deque[str] = deque()
 
         self.events: deque[dict[str, Any]] = deque(maxlen=settings.history_events)
         self._artifact_seq = 0
+        self._reservation_seq = 0
         self._round_seq = 0
         self._bg_tasks: set[asyncio.Task] = set()
 
@@ -324,6 +385,172 @@ class Manager:
         task.add_done_callback(self._bg_tasks.discard)
         return task
 
+    # ---------------------------- reservations ------------------------------ #
+    def queue_publish(
+        self, name: str | None = None, interval_seconds: float | None = None
+    ) -> Reservation:
+        """Queue a publish order instead of rejecting it while paused.
+
+        Synchronous critical section: no await between the liveness/acceptance
+        checks and registration, so an expiry sweep or a new round cannot
+        interleave.  Nothing is written to either volume here.
+        """
+        if self.accepting:
+            # Nothing to queue for: the caller should publish directly.
+            raise NotPaused()
+        self._reservation_seq += 1
+        seq = self._reservation_seq
+        rid = f"rsv_{seq:05d}_{uuid.uuid4().hex[:6]}"
+        if interval_seconds is None:
+            interval = self.write_interval
+        else:
+            interval = max(0.0, min(float(interval_seconds), 60.0))
+        now = time.time()
+        rsv = Reservation(
+            id=rid,
+            seq=seq,
+            name=(name or f"样例制品 {seq}").strip()[:120],
+            interval_seconds=interval,
+            created_at_unix=now,
+            expires_at_unix=now + self.settings.reservation_ttl_seconds,
+        )
+        self.reservations[rid] = rsv
+        self.reservation_order.append(rid)
+        self._trim_reservations()
+        # Arm the TTL.  Expiry is enforced lazily too (see _expire_reservations),
+        # so a missed timer can never publish an overdue order.
+        self._reservation_tasks[rid] = self._spawn(self._expire_reservation(rsv))
+        self.add_event(
+            "warning",
+            f"排队发布 {rid}（{rsv.name}）：已暂停接单，先排队不写盘；"
+            f"{self.settings.reservation_ttl_seconds:.0f}s 内未被接单将自动作废",
+            reservation_id=rid,
+        )
+        return rsv
+
+    async def _expire_reservation(self, rsv: Reservation) -> None:
+        try:
+            # Sleep to the wall-clock deadline, tolerating early wakeups.
+            while rsv.state == "queued":
+                remaining = rsv.expires_at_unix - time.time()
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(remaining)
+            if rsv.state == "queued" and time.time() >= rsv.expires_at_unix:
+                self._finalize_reservation(
+                    rsv,
+                    "expired",
+                    f"预约 {self.settings.reservation_ttl_seconds:.0f}s 内未被接单，自动作废，不再发布",
+                )
+            # Sweep any siblings that are also overdue (lazy safety net).
+            self._expire_reservations()
+        finally:
+            # Identity-guarded: only drop our own registration.
+            if self._reservation_tasks.get(rsv.id) is asyncio.current_task():
+                self._reservation_tasks.pop(rsv.id, None)
+
+    def _expire_reservations(self) -> list[Reservation]:
+        """Mark every queued reservation past its deadline as expired."""
+        now = time.time()
+        expired: list[Reservation] = []
+        for rsv in self.reservations.values():
+            if rsv.state == "queued" and now >= rsv.expires_at_unix:
+                self._finalize_reservation(rsv, "expired", "预约到期仍未接单，自动作废，不再发布")
+                expired.append(rsv)
+        return expired
+
+    def _cancel_reservation_timer(self, rsv: Reservation) -> None:
+        task = self._reservation_tasks.pop(rsv.id, None)
+        # Never self-cancel: expiry finalizes its own reservation from within
+        # the timer task, which is already about to return.
+        try:
+            current = asyncio.current_task()
+        except RuntimeError:  # no running loop (plain sync caller)
+            current = None
+        if task is not None and not task.done() and task is not current:
+            task.cancel()
+
+    def _finalize_reservation(
+        self, rsv: Reservation, state: str, note: str | None = None
+    ) -> None:
+        if rsv.state != "queued":
+            return
+        rsv.state = state
+        rsv.finalized_at_unix = time.time()
+        rsv.note = note
+        self._cancel_reservation_timer(rsv)
+        if state == "expired":
+            self.add_event(
+                "error",
+                f"排队发布 {rsv.id}（{rsv.name}）：{note}",
+                reservation_id=rsv.id,
+            )
+
+    def withdraw_reservation(self, reservation_id: str) -> Reservation:
+        rsv = self.reservations.get(reservation_id)
+        if rsv is None:
+            raise ReservationNotFound(reservation_id)
+        # Lazy sweep so an overdue reservation reports "expired", not "queued".
+        self._expire_reservations()
+        if rsv.state != "queued":
+            raise ReservationNotWithdrawable(reservation_id, rsv.state)
+        self._finalize_reservation(rsv, "withdrawn", "已由值班员撤回，不再发布")
+        self.add_event(
+            "warning",
+            f"排队发布 {rsv.id}（{rsv.name}）：已撤回，不再发布",
+            reservation_id=rsv.id,
+        )
+        return rsv
+
+    def _trim_reservations(self) -> None:
+        limit = self.settings.history_reservations
+        while len(self.reservation_order) > limit:
+            old_id = self.reservation_order.popleft()
+            old = self.reservations.get(old_id)
+            if old is not None and old.state == "queued":
+                self.reservation_order.appendleft(old_id)
+                break
+            self.reservations.pop(old_id, None)
+
+    def _accept_due_reservations(self) -> list[Artifact]:
+        """Accept still-valid queued reservations in queue order.
+
+        Must run synchronously with ``accepting`` flipped to True and exactly
+        before new orders are allowed in, so accepted reservations keep their
+        ordering and are all in ``pending`` before the next round pauses.
+        """
+        self._expire_reservations()
+        accepted: list[Artifact] = []
+        for rid in list(self.reservation_order):
+            rsv = self.reservations.get(rid)
+            if rsv is None or rsv.state != "queued":
+                continue
+            if time.time() >= rsv.expires_at_unix:
+                continue  # swept above, defensive
+            try:
+                art = self._accept_artifact_internal(
+                    rsv.name, rsv.interval_seconds, reservation_id=rsv.id
+                )
+            except Exception as exc:  # never leave acceptance stuck on one bad order
+                logger.exception("reservation accept failed: %s", rsv.id)
+                self._finalize_reservation(
+                    rsv, "expired", f"接单失败，按作废处理：{type(exc).__name__}: {exc}"
+                )
+                continue
+            rsv.state = "accepted"
+            rsv.accepted_at_unix = time.time()
+            rsv.finalized_at_unix = rsv.accepted_at_unix
+            rsv.artifact_id = art.id
+            rsv.note = "恢复接单时按预约顺序接单，立即发布"
+            self._cancel_reservation_timer(rsv)
+            accepted.append(art)
+            self.add_event(
+                "success",
+                f"排队发布 {rsv.id}（{rsv.name}）：恢复接单，按预约顺序接单为制品 {art.id}",
+                reservation_id=rsv.id,
+            )
+        return accepted
+
     # --------------------------- artifacts --------------------------------- #
     def accept_artifact(
         self, name: str | None = None, interval_seconds: float | None = None
@@ -335,6 +562,17 @@ class Manager:
         """
         if not self.accepting:
             raise AcceptancePaused(self.active_round_id)
+        return self._accept_artifact_internal(name, interval_seconds)
+
+    def _accept_artifact_internal(
+        self,
+        name: str | None = None,
+        interval_seconds: float | None = None,
+        *,
+        reservation_id: str | None = None,
+    ) -> Artifact:
+        """Register + start publishing one artifact.  Caller owns the
+        acceptance decision (accepting must already be True)."""
         self._artifact_seq += 1
         seq = self._artifact_seq
         artifact_id = f"art_{seq:05d}_{uuid.uuid4().hex[:6]}"
@@ -347,13 +585,18 @@ class Manager:
             seq=seq,
             name=(name or f"样例制品 {seq}").strip()[:120],
             interval_seconds=interval,
+            reservation_id=reservation_id,
         )
         self.artifacts[artifact_id] = art
         self.artifact_order.append(artifact_id)
         self.pending.add(artifact_id)
         self._trim_artifacts()
         self._spawn(self._write_artifact(artifact_id))
-        self.add_event("info", f"已接单 {artifact_id}（{art.name}），两次落盘间隔 {interval:.2f}s")
+        self.add_event(
+            "info",
+            f"已接单 {artifact_id}（{art.name}），两次落盘间隔 {interval:.2f}s"
+            + (f"，来源预约 {reservation_id}" if reservation_id else ""),
+        )
         return art
 
     def _trim_artifacts(self) -> None:
@@ -447,6 +690,7 @@ class Manager:
             "max_window_seconds": 3.0,
             "drain_timeout_seconds": self.settings.drain_timeout_seconds,
             "agent_http_timeout_seconds": self.settings.agent_http_timeout_seconds,
+            "reservation_ttl_seconds": self.settings.reservation_ttl_seconds,
         }
 
     # ----------------------------- rounds ---------------------------------- #
@@ -650,9 +894,23 @@ class Manager:
     # --------------------------- settlement -------------------------------- #
     def _resume_acceptance_if_owner(self, rnd: Round) -> None:
         # Identity guard: an old round must never clear a newer active round.
-        if self.active_round_id == rnd.id:
-            self.active_round_id = None
-            self.accepting = True
+        if self.active_round_id != rnd.id:
+            return
+        self.active_round_id = None
+        # (1) Finalize anything already past its 10s deadline, (2) accept the
+        # still-valid reservations in queue order, (3) only then open the gate
+        # to brand-new orders.  All synchronous: a new order or an immediate
+        # next round can only happen after every accepted reservation is in
+        # ``pending``, so a follow-up round will drain them before capturing.
+        accepted = self._accept_due_reservations()
+        self.accepting = True
+        if accepted:
+            self.add_event(
+                "info",
+                f"轮次 {rnd.id} 结束恢复接单：先按预约顺序接下 {len(accepted)} 个仍有效的预约，"
+                f"再接新单",
+                round_id=rnd.id,
+            )
 
     def _settle_success(self, rnd: Round) -> None:
         if rnd.terminal:
@@ -765,6 +1023,8 @@ class Manager:
     # --------------------------- serialization ------------------------------ #
     def public_state(self) -> dict[str, Any]:
         now = time.time()
+        # Keep the visible status fresh even between timer ticks.
+        self._expire_reservations()
         return {
             "server_unix": now,
             "accepting": self.accepting,
@@ -772,6 +1032,14 @@ class Manager:
             "in_flight": len(self.pending),
             "pending_ids": sorted(self.pending),
             "settings": self.settings_dict(),
+            "reservations": [
+                self.reservations[rid].to_dict(now=now)
+                for rid in reversed(self.reservation_order)
+                if rid in self.reservations
+            ],
+            "queued_reservations": sum(
+                1 for r in self.reservations.values() if r.state == "queued"
+            ),
             "artifacts": [
                 self.artifacts[aid].to_dict()
                 for aid in reversed(self.artifact_order)
